@@ -71,12 +71,20 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      - name: Install musl-tools
+      - name: Install musl-tools and musl OpenSSL
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools
+          sudo apt-get install -y musl-tools curl pkg-config libssl-dev
+          echo "Enable musl OpenSSL"
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           rustup target add x86_64-unknown-linux-musl
+
+      - name: Install OpenSSL on macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install openssl
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
 
       - name: Build git-statuses
         run: |

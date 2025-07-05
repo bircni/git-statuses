@@ -21,6 +21,12 @@ You need [Rust](https://www.rust-lang.org/tools/install) installed.
 cargo install git-statuses
 ```
 
+Installation with `cargo-binstall`:
+
+```sh
+cargo binstall git-statuses
+```
+
 Or clone and build manually:
 
 ```sh
