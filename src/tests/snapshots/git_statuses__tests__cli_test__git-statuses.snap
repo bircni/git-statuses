@@ -25,6 +25,9 @@ Options:
   -f, --fetch
           Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
 
+  -l, --legend
+          Print a legend explaining the color codes and statuses used in the output
+
   -h, --help
           Print help
 

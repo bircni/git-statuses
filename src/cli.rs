@@ -4,7 +4,10 @@ use clap::{ArgAction, Parser};
 
 /// Scan the given directory for Git repositories and display their status.
 /// A Repository turns red if it has unpushed changes.
-
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "This is a CLI tool with many options, and excessive bools are common in such cases."
+)]
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -25,4 +28,7 @@ pub struct Args {
     /// Note: This may take a while for large repositories.
     #[arg(short, long, action = ArgAction::SetTrue)]
     pub fetch: bool,
+    /// Print a legend explaining the color codes and statuses used in the output
+    #[arg(short, long, action = ArgAction::SetTrue)]
+    pub legend: bool,
 }

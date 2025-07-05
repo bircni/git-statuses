@@ -44,7 +44,7 @@ impl RepoInfo {
         let (ahead, behind) = get_ahead_behind(repo);
         let commits = get_total_commits(repo)?;
         let untracked = get_untracked_count(repo);
-        let changed = get_changed_count(repo);
+        let changed = get_changed_count(repo).saturating_add(untracked);
         let status = get_repo_status(repo);
         let has_unpushed = ahead > 0;
         let remote_url = if show_remote {
@@ -189,18 +189,19 @@ pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     let path = repo
         .path()
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("Kein Arbeitsverzeichnis gefunden"))?;
-    let status = Command::new("git")
+        .ok_or_else(|| anyhow::anyhow!("No parent directory found"))?;
+    let output = Command::new("git")
         .arg("fetch")
         .arg("origin")
         .current_dir(path)
-        .status()?;
-    if !status.success() {
+        .output()?;
+
+    if !output.status.success() {
         anyhow::bail!(
-            "git fetch origin failed (Exit code: {}) for {}",
-            status,
-            repo.path().display()
-        );
+            "Failed to fetch from origin: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
     }
+
     Ok(())
 }

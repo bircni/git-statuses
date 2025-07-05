@@ -4,6 +4,7 @@ use cli::Args;
 
 mod cli;
 mod gitinfo;
+mod printer;
 #[cfg(test)]
 mod tests;
 mod util;
@@ -11,13 +12,20 @@ mod util;
 /// Entry point for the git-statuses CLI tool.
 /// Parses arguments, scans for repositories, prints their status and a summary.
 fn main() -> Result<()> {
+    util::initialize_logger()?;
     let args = Args::parse();
-    let mut repos = util::find_repositories(&args)?;
-
-    util::print_repositories(&mut repos, &args);
-    if args.summary {
-        util::print_summary(&repos);
+    if args.legend {
+        printer::print_legend();
+        return Ok(());
     }
+
+    let (mut repos, failed_repos) = util::find_repositories(&args)?;
+
+    printer::repositories_table(&mut repos, &args);
+    if args.summary {
+        printer::summary(&repos);
+    }
+    printer::failed_summary(&failed_repos);
 
     Ok(())
 }

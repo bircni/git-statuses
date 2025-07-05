@@ -1,6 +1,7 @@
 use crate::cli::Args;
 use crate::gitinfo::RepoInfo;
-use crate::util::{find_repositories, print_repositories, print_summary};
+use crate::printer;
+use crate::util::find_repositories;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -14,8 +15,9 @@ fn test_find_repositories_empty_dir() {
         fetch: false,
         remote: false,
         summary: false,
+        legend: false,
     };
-    let repos = find_repositories(&args).unwrap();
+    let (repos, _) = find_repositories(&args).unwrap();
     assert!(repos.is_empty());
 }
 
@@ -40,10 +42,11 @@ fn test_print_repositories_and_summary() {
         fetch: false,
         remote: false,
         summary: true,
+        legend: false,
     };
     let mut repos = vec![repo];
-    print_repositories(&mut repos, &args);
-    print_summary(&repos);
+    printer::repositories_table(&mut repos, &args);
+    printer::summary(&repos);
 }
 
 #[test]
@@ -57,8 +60,9 @@ fn test_find_repositories_with_non_git_dir() {
         fetch: false,
         remote: false,
         summary: false,
+        legend: false,
     };
-    let repos = find_repositories(&args).unwrap();
+    let (repos, _) = find_repositories(&args).unwrap();
     assert!(repos.is_empty());
 }
 
@@ -82,7 +86,8 @@ fn test_print_repositories_with_remote() {
         fetch: false,
         remote: true,
         summary: false,
+        legend: false,
     };
     let mut repos = vec![repo];
-    print_repositories(&mut repos, &args);
+    printer::repositories_table(&mut repos, &args);
 }

@@ -19,6 +19,8 @@ anyhow = "1"
 comfy-table = "7.1.4"
 rayon = "1.10.0"
 parking_lot = "0.12.4"
+log = "0.4.27"
+simplelog = "0.12.2"
 
 [dev-dependencies]
 insta = { version = "1.43", features = ["json"] }

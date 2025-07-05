@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table, presets};
+use anyhow::Context as _;
+use log::LevelFilter;
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
 use walkdir::WalkDir;
 
 use crate::{cli::Args, gitinfo::RepoInfo};
@@ -13,8 +15,10 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// * `args` - CLI arguments controlling the scan behavior.
 ///
 /// # Returns
-/// A vector of `RepoInfo` for each found repository, or an error.
-pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
+/// A tuple containing:
+/// - A vector of `RepoInfo` containing details about each found repository.
+/// - A vector of strings of failed repositories (those that could not be opened or processed).
+pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<String>)> {
     let min_depth = 1;
     let max_depth = if args.depth > 0 { args.depth } else { 1 };
     let walker = WalkDir::new(&args.dir)
@@ -26,9 +30,11 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
         .collect::<Vec<_>>();
 
     let repos: Arc<RwLock<Vec<RepoInfo>>> = Arc::new(RwLock::new(Vec::new()));
+    let failed_repos: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
     walker.par_iter().try_for_each(|entry| {
         let path = entry.path();
+        let repo_name = get_repo_name(path);
         if !path.is_dir() {
             return Ok(());
         }
@@ -38,13 +44,11 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
         }
         match git2::Repository::open(path) {
             Ok(repo) => {
-                match RepoInfo::new(&repo, args.remote, args.fetch, path) {
-                    Ok(repo) => {
-                        repos.write().push(repo);
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to read repository at {}: {:?}", path.display(), e);
-                    }
+                if let Ok(repo) = RepoInfo::new(&repo, args.remote, args.fetch, path) {
+                    repos.write().push(repo);
+                } else {
+                    // println!("Failed to process repository: {}", path.display());
+                    failed_repos.write().push(repo_name);
                 }
                 Ok(())
             }
@@ -53,89 +57,31 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
             }
         }
     })?;
-    Ok(repos.read().to_vec())
+    Ok((repos.read().to_vec(), failed_repos.read().to_vec()))
 }
 
-/// Prints the repository status information as a table or list, depending on CLI options.
-///
-/// # Arguments
-/// * `repos` - List of repositories to display.
-/// * `args` - CLI arguments controlling the output format.
-///
-/// # Errors
-/// Returns an error if output fails.
-pub fn print_repositories(repos: &mut [RepoInfo], args: &Args) {
-    if repos.is_empty() {
-        println!("No repositories found.");
-        return;
-    }
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic);
-
-    let mut header = vec![
-        Cell::new("Directory").add_attribute(Attribute::Bold),
-        Cell::new("Branch").add_attribute(Attribute::Bold),
-        Cell::new("Ahead").add_attribute(Attribute::Bold),
-        Cell::new("Behind").add_attribute(Attribute::Bold),
-        Cell::new("Commits").add_attribute(Attribute::Bold),
-        Cell::new("Untracked").add_attribute(Attribute::Bold),
-        Cell::new("Status").add_attribute(Attribute::Bold),
-    ];
-    if args.remote {
-        header.push(Cell::new("Remote").add_attribute(Attribute::Bold));
-    }
-    table.set_header(header);
-    repos.sort_by_key(|r| r.name.to_ascii_lowercase());
-    for repo in repos {
-        let status_str = if repo.status == "Dirty" {
-            format!("Dirty ({} changed)", repo.changed)
-        } else {
-            repo.status.clone()
-        };
-        let status_cell = match repo.status.as_str() {
-            "Clean" => Cell::new("Clean").fg(Color::Green),
-            "Dirty" => Cell::new(&status_str).fg(Color::Red),
-            _ => Cell::new(&repo.status),
-        };
-        let name_cell = if repo.has_unpushed {
-            Cell::new(&repo.name).fg(Color::Red)
-        } else {
-            Cell::new(&repo.name)
-        };
-        let mut row = vec![
-            name_cell,
-            Cell::new(&repo.branch),
-            Cell::new(repo.ahead),
-            Cell::new(repo.behind),
-            Cell::new(repo.commits),
-            Cell::new(repo.untracked),
-            status_cell,
-        ];
-        if args.remote {
-            row.push(Cell::new(repo.remote_url.as_deref().unwrap_or("-")));
-        }
-        table.add_row(row);
-    }
-    println!("{table}");
+/// Extracts the repository name from the given path.
+fn get_repo_name(path: &std::path::Path) -> String {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_owned()
 }
 
-/// Prints a summary of the repository scan (total, clean, dirty, unpushed).
+/// Initializes the logger for the application.
 ///
-/// # Arguments
-/// * `repos` - List of repositories to summarize.
-///
-/// # Errors
-/// Returns an error if output fails.
-pub fn print_summary(repos: &[RepoInfo]) {
-    let total = repos.len();
-    let clean = repos.iter().filter(|r| r.status == "Clean").count();
-    let dirty = repos.iter().filter(|r| r.status == "Dirty").count();
-    let unpushed = repos.iter().filter(|r| r.has_unpushed).count();
-    println!("\nSummary:");
-    println!("  Total repositories:   {total}");
-    println!("  Clean:                {clean}");
-    println!("  With changes:         {dirty}");
-    println!("  With unpushed:        {unpushed}");
+/// Returns an error if logger initialization fails.
+pub fn initialize_logger() -> anyhow::Result<()> {
+    TermLogger::init(
+        #[cfg(debug_assertions)]
+        LevelFilter::max(),
+        #[cfg(not(debug_assertions))]
+        LevelFilter::Info,
+        ConfigBuilder::new()
+            .add_filter_allow_str("git_statuses")
+            .build(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )
+    .context("Failed to initialize logger")
 }
