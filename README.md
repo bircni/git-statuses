@@ -13,6 +13,8 @@ A command-line tool to display the status of multiple Git repositories in a clea
 - Fast and user-friendly CLI
 - Useful for developers managing many repositories
 
+![Example](./doc/example.png)
+
 ## Installation
 
 You need [Rust](https://www.rust-lang.org/tools/install) installed.
