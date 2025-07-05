@@ -13,6 +13,7 @@ mod util;
 /// Parses arguments, scans for repositories, prints their status and a summary.
 fn main() -> Result<()> {
     util::initialize_logger()?;
+
     let args = Args::parse();
     if args.legend {
         printer::print_legend();

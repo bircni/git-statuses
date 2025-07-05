@@ -7,9 +7,6 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// # Arguments
 /// * `repos` - List of repositories to display.
 /// * `args` - CLI arguments controlling the output format.
-///
-/// # Errors
-/// Returns an error if output fails.
 pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     if repos.is_empty() {
         log::info!("No repositories found.");
@@ -90,9 +87,6 @@ pub fn print_legend() {
 ///
 /// # Arguments
 /// * `repos` - List of repositories to summarize.
-///
-/// # Errors
-/// Returns an error if output fails.
 pub fn summary(repos: &[RepoInfo], failed: usize) {
     let total = repos.len();
     let clean = repos.iter().filter(|r| r.status == "Clean").count();
@@ -111,9 +105,6 @@ pub fn summary(repos: &[RepoInfo], failed: usize) {
 /// Prints a summary of failed repositories that could not be processed.
 /// # Arguments
 /// * `failed_repos` - List of repository names that failed to process.
-///
-/// # Errors
-/// Returns an error if output fails.
 pub fn failed_summary(failed_repos: &[String]) {
     if !failed_repos.is_empty() {
         log::warn!("Failed to process the following repositories:");

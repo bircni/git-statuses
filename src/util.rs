@@ -18,6 +18,9 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// A tuple containing:
 /// - A vector of `RepoInfo` containing details about each found repository.
 /// - A vector of strings of failed repositories (those that could not be opened or processed).
+///
+/// # Errors
+/// Returns an error if the directory cannot be read or if any repository cannot be opened.
 pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<String>)> {
     let min_depth = 1;
     let max_depth = if args.depth > 0 { args.depth } else { 1 };

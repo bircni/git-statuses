@@ -30,6 +30,20 @@ pub struct RepoInfo {
 
 impl RepoInfo {
     /// Creates a new `RepoInfo` instance.
+    /// # Arguments
+    /// * `repo` - The Git repository to gather information from.
+    /// * `show_remote` - Whether to include the remote URL in the info.
+    /// * `fetch` - Whether to run a fetch operation before gathering info.
+    /// * `path` - The path to the repository directory.
+    ///
+    /// # Returns
+    /// A `RepoInfo` instance containing the repository's status information.
+    ///
+    /// # Errors
+    /// Returns an error if the repository cannot be opened, or if fetching fails.
+    /// If `fetch` is true, it will attempt to fetch from the "origin"
+    /// remote to update upstream information.
+    /// If fetching fails, it will use that error to return an error.
     pub fn new(
         repo: &Repository,
         show_remote: bool,
