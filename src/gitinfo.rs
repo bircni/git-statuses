@@ -184,7 +184,7 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
         .and_then(|r| r.url().map(std::borrow::ToOwned::to_owned))
 }
 
-/// Führt ein `git fetch` für origin durch, um Upstream-Informationen zu aktualisieren.
+/// Executes a fetch operation for the "origin" remote to update upstream information.
 pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     let mut remote = repo.find_remote("origin")?;
     remote.fetch(&[] as &[&str], None, None)?;
