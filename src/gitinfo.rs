@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 use git2::{Repository, StatusOptions};
 
@@ -185,7 +186,21 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
 
 /// Executes a fetch operation for the "origin" remote to update upstream information.
 pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
-    let mut remote = repo.find_remote("origin")?;
-    remote.fetch(&[] as &[&str], None, None)?;
+    let path = repo
+        .path()
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Kein Arbeitsverzeichnis gefunden"))?;
+    let status = Command::new("git")
+        .arg("fetch")
+        .arg("origin")
+        .current_dir(path)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!(
+            "git fetch origin failed (Exit code: {}) for {}",
+            status,
+            repo.path().display()
+        );
+    }
     Ok(())
 }

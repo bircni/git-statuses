@@ -4,19 +4,17 @@ use clap::{ArgAction, Parser};
 
 /// Scan the given directory for Git repositories and display their status.
 /// A Repository turns red if it has unpushed changes.
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "This is a CLI tool with many options"
-)]
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// Directory to scan
     #[arg(default_value = ".")]
     pub dir: PathBuf,
-    /// Recursively scan all subdirectories
-    #[arg(short, long, action = ArgAction::SetTrue)]
-    pub all: bool,
+    /// Recursively scan all subdirectories to the given depth.
+    /// If set to 1, only the current directory is scanned.
+    #[arg(short, long, action = ArgAction::SetTrue, default_value = "1")]
+    pub depth: usize,
     /// Show remote URL
     #[arg(short = 'r', long, action = ArgAction::SetTrue)]
     pub remote: bool,

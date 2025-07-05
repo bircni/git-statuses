@@ -10,7 +10,7 @@ fn test_find_repositories_empty_dir() {
     let temp = TempDir::new().unwrap();
     let args = Args {
         dir: temp.path().to_path_buf(),
-        all: false,
+        depth: 1,
         fetch: false,
         remote: false,
         summary: false,
@@ -36,7 +36,7 @@ fn test_print_repositories_and_summary() {
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),
-        all: false,
+        depth: 1,
         fetch: false,
         remote: false,
         summary: true,
@@ -53,7 +53,7 @@ fn test_find_repositories_with_non_git_dir() {
     fs::create_dir_all(&subdir).unwrap();
     let args = Args {
         dir: temp.path().to_path_buf(),
-        all: true,
+        depth: 1,
         fetch: false,
         remote: false,
         summary: false,
@@ -78,7 +78,7 @@ fn test_print_repositories_with_remote() {
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),
-        all: false,
+        depth: 1,
         fetch: false,
         remote: true,
         summary: false,

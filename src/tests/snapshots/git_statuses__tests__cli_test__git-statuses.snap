@@ -13,8 +13,8 @@ Arguments:
           [default: .]
 
 Options:
-  -a, --all
-          Recursively scan all subdirectories
+  -d, --depth
+          Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned
 
   -r, --remote
           Show remote URL

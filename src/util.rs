@@ -16,7 +16,7 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// A vector of `RepoInfo` for each found repository, or an error.
 pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
     let min_depth = 1;
-    let max_depth = if args.all { usize::MAX } else { 1 };
+    let max_depth = if args.depth > 0 { args.depth } else { 1 };
     let walker = WalkDir::new(&args.dir)
         .min_depth(min_depth)
         .max_depth(max_depth)
@@ -38,9 +38,14 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
         }
         match git2::Repository::open(path) {
             Ok(repo) => {
-                repos
-                    .write()
-                    .push(RepoInfo::new(&repo, args.remote, args.fetch, path)?);
+                match RepoInfo::new(&repo, args.remote, args.fetch, path) {
+                    Ok(repo) => {
+                        repos.write().push(repo);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to read repository at {}: {:?}", path.display(), e);
+                    }
+                }
                 Ok(())
             }
             Err(e) => {
