@@ -93,7 +93,7 @@ pub fn print_legend() {
 ///
 /// # Errors
 /// Returns an error if output fails.
-pub fn summary(repos: &[RepoInfo]) {
+pub fn summary(repos: &[RepoInfo], failed: usize) {
     let total = repos.len();
     let clean = repos.iter().filter(|r| r.status == "Clean").count();
     let dirty = repos.iter().filter(|r| r.status == "Dirty").count();
@@ -103,6 +103,9 @@ pub fn summary(repos: &[RepoInfo]) {
     println!("  Clean:                {clean}");
     println!("  With changes:         {dirty}");
     println!("  With unpushed:        {unpushed}");
+    if failed > 0 {
+        println!("  Failed to process:    {failed}");
+    }
 }
 
 /// Prints a summary of failed repositories that could not be processed.

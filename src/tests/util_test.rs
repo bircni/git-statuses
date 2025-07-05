@@ -46,7 +46,7 @@ fn test_print_repositories_and_summary() {
     };
     let mut repos = vec![repo];
     printer::repositories_table(&mut repos, &args);
-    printer::summary(&repos);
+    printer::summary(&repos, 0);
 }
 
 #[test]

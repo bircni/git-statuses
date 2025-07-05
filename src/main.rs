@@ -22,10 +22,10 @@ fn main() -> Result<()> {
     let (mut repos, failed_repos) = util::find_repositories(&args)?;
 
     printer::repositories_table(&mut repos, &args);
-    if args.summary {
-        printer::summary(&repos);
-    }
     printer::failed_summary(&failed_repos);
+    if args.summary {
+        printer::summary(&repos, failed_repos.len());
+    }
 
     Ok(())
 }
