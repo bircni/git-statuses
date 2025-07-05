@@ -38,7 +38,9 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<Vec<RepoInfo>> {
         }
         match git2::Repository::open(path) {
             Ok(repo) => {
-                repos.write().push(RepoInfo::new(&repo, args.remote, path)?);
+                repos
+                    .write()
+                    .push(RepoInfo::new(&repo, args.remote, args.fetch, path)?);
                 Ok(())
             }
             Err(e) => {

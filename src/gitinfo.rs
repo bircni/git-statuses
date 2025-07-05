@@ -29,7 +29,16 @@ pub struct RepoInfo {
 
 impl RepoInfo {
     /// Creates a new `RepoInfo` instance.
-    pub fn new(repo: &Repository, show_remote: bool, path: &Path) -> anyhow::Result<Self> {
+    pub fn new(
+        repo: &Repository,
+        show_remote: bool,
+        fetch: bool,
+        path: &Path,
+    ) -> anyhow::Result<Self> {
+        if fetch {
+            // Attempt to fetch from origin, ignoring errors
+            fetch_origin(repo)?;
+        }
         let branch = get_branch_name(repo);
         let (ahead, behind) = get_ahead_behind(repo);
         let commits = get_total_commits(repo)?;
@@ -173,4 +182,11 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
     repo.find_remote("origin")
         .ok()
         .and_then(|r| r.url().map(std::borrow::ToOwned::to_owned))
+}
+
+/// Führt ein `git fetch` für origin durch, um Upstream-Informationen zu aktualisieren.
+pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
+    let mut remote = repo.find_remote("origin")?;
+    remote.fetch(&[] as &[&str], None, None)?;
+    Ok(())
 }

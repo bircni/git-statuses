@@ -11,6 +11,7 @@ fn test_find_repositories_empty_dir() {
     let args = Args {
         dir: temp.path().to_path_buf(),
         all: false,
+        fetch: false,
         remote: false,
         summary: false,
     };
@@ -36,6 +37,7 @@ fn test_print_repositories_and_summary() {
     let args = Args {
         dir: Path::new(".").to_path_buf(),
         all: false,
+        fetch: false,
         remote: false,
         summary: true,
     };
@@ -52,6 +54,7 @@ fn test_find_repositories_with_non_git_dir() {
     let args = Args {
         dir: temp.path().to_path_buf(),
         all: true,
+        fetch: false,
         remote: false,
         summary: false,
     };
@@ -76,6 +79,7 @@ fn test_print_repositories_with_remote() {
     let args = Args {
         dir: Path::new(".").to_path_buf(),
         all: false,
+        fetch: false,
         remote: true,
         summary: false,
     };

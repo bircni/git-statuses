@@ -143,10 +143,10 @@ fn test_get_total_commits_multiple() {
 fn test_repo_info_new_with_and_without_remote() {
     let (tmp, repo) = init_temp_repo();
     // Without remote
-    let info = crate::gitinfo::RepoInfo::new(&repo, false, tmp.path());
+    let info = crate::gitinfo::RepoInfo::new(&repo, false, false, tmp.path());
     info.unwrap();
     // With remote (origin does not exist)
-    let info_remote = crate::gitinfo::RepoInfo::new(&repo, true, tmp.path());
+    let info_remote = crate::gitinfo::RepoInfo::new(&repo, true, false, tmp.path());
     info_remote.unwrap();
 }
 
