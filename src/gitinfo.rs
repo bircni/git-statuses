@@ -77,17 +77,16 @@ pub fn get_branch_name(repo: &Repository) -> String {
         if let Some(name) = head.shorthand() {
             return name.to_owned();
         }
-        if let Some(target) = head.symbolic_target() {
-            if let Some(branch) = target.rsplit('/').next() {
-                return format!("{branch} (no commits)");
-            }
+        if let Some(target) = head.symbolic_target()
+            && let Some(branch) = target.rsplit('/').next()
+        {
+            return format!("{branch} (no commits)");
         }
-    } else if let Ok(headref) = repo.find_reference("HEAD") {
-        if let Some(sym) = headref.symbolic_target() {
-            if let Some(branch) = sym.rsplit('/').next() {
-                return format!("{branch} (no commits)");
-            }
-        }
+    } else if let Ok(headref) = repo.find_reference("HEAD")
+        && let Some(sym) = headref.symbolic_target()
+        && let Some(branch) = sym.rsplit('/').next()
+    {
+        return format!("{branch} (no commits)");
     }
     "(no branch)".to_owned()
 }
@@ -99,13 +98,13 @@ pub fn get_ahead_behind(repo: &Repository) -> (usize, usize) {
         || None,
         |name| repo.find_branch(name, git2::BranchType::Local).ok(),
     );
-    if let Some(branch) = branch {
-        if let Ok(upstream) = branch.upstream() {
-            let local_oid = branch.get().target();
-            let upstream_oid = upstream.get().target();
-            if let (Some(local), Some(up)) = (local_oid, upstream_oid) {
-                return repo.graph_ahead_behind(local, up).unwrap_or((0, 0));
-            }
+    if let Some(branch) = branch
+        && let Ok(upstream) = branch.upstream()
+    {
+        let local_oid = branch.get().target();
+        let upstream_oid = upstream.get().target();
+        if let (Some(local), Some(up)) = (local_oid, upstream_oid) {
+            return repo.graph_ahead_behind(local, up).unwrap_or((0, 0));
         }
     }
     (0, 0)
