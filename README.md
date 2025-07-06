@@ -70,7 +70,7 @@ The tool prints a table with the following columns:
 
 ## Development
 
-- Requires Rust 1.85+ (edition 2024)
+- Requires Rust 1.88+ (edition 2024)
 - Linting: `cargo clippy`
 - Tests: `cargo test`
 
