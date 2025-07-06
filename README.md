@@ -50,7 +50,7 @@ Arguments:
   [DIR]  Directory to scan [default: .]
 
 Options:
-  -d, --depth    Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned
+  -d, --depth <DEPTH>  Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned [default: 1]
   -r, --remote   Show remote URL
   -s, --summary  Show a summary of the scan
   -f, --fetch    Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
