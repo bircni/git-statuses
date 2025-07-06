@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 
 /// Scan the given directory for Git repositories and display their status.
 /// A Repository turns red if it has unpushed changes.
@@ -19,19 +19,24 @@ pub struct Args {
     #[arg(short, long, default_value = "1")]
     pub depth: usize,
     /// Show remote URL
-    #[arg(short = 'r', long, action = ArgAction::SetTrue)]
+    #[arg(short = 'r', long)]
     pub remote: bool,
     /// Use a condensed layout
-    #[arg(short, long, action = ArgAction::SetTrue)]
+    #[arg(short, long)]
     pub condensed: bool,
     /// Show a summary of the scan
-    #[arg(short, long, action = ArgAction::SetTrue)]
+    #[arg(long)]
     pub summary: bool,
     /// Run a fetch before scanning to update the repository state
     /// Note: This may take a while for large repositories.
-    #[arg(short, long, action = ArgAction::SetTrue)]
+    #[arg(short, long)]
     pub fetch: bool,
     /// Print a legend explaining the color codes and statuses used in the output
-    #[arg(short, long, action = ArgAction::SetTrue)]
+    #[arg(short, long)]
     pub legend: bool,
+    /// Look in a specific subdir if it exists for each folder
+    /// This can be useful, if you dont checkout in a folder directly
+    /// but in a subfolder like `repo-name/checkout`
+    #[arg(short, long)]
+    pub subdir: Option<String>,
 }

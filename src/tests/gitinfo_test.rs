@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use git2::Repository;
 
-use crate::gitinfo;
+use crate::gitinfo::{self, RepoInfo};
 
 fn init_temp_repo() -> (tempfile::TempDir, git2::Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
@@ -144,12 +144,12 @@ fn test_get_total_commits_multiple() {
 
 #[test]
 fn test_repo_info_new_with_and_without_remote() {
-    let (tmp, repo) = init_temp_repo();
+    let (_, repo) = init_temp_repo();
     // Without remote
-    let info = crate::gitinfo::RepoInfo::new(&repo, false, false, tmp.path());
+    let info = RepoInfo::new(&repo, "tmp", false, false);
     info.unwrap();
     // With remote (origin does not exist)
-    let info_remote = crate::gitinfo::RepoInfo::new(&repo, true, false, tmp.path());
+    let info_remote = RepoInfo::new(&repo, "tmp", true, false);
     info_remote.unwrap();
 }
 
