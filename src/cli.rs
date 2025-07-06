@@ -16,7 +16,7 @@ pub struct Args {
     pub dir: PathBuf,
     /// Recursively scan all subdirectories to the given depth.
     /// If set to 1, only the current directory is scanned.
-    #[arg(short, long, action = ArgAction::SetTrue, default_value = "1")]
+    #[arg(short, long, default_value = "1")]
     pub depth: usize,
     /// Show remote URL
     #[arg(short = 'r', long, action = ArgAction::SetTrue)]
