@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::process::Command;
 
 use git2::{Repository, StatusOptions};
@@ -46,9 +45,9 @@ impl RepoInfo {
     /// If fetching fails, it will use that error to return an error.
     pub fn new(
         repo: &Repository,
+        name: &str,
         show_remote: bool,
         fetch: bool,
-        path: &Path,
     ) -> anyhow::Result<Self> {
         if fetch {
             // Attempt to fetch from origin, ignoring errors
@@ -66,13 +65,9 @@ impl RepoInfo {
         } else {
             None
         };
-        let name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
+
         Ok(Self {
-            name,
+            name: name.to_owned(),
             branch,
             ahead,
             behind,

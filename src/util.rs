@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Context as _;
 use log::LevelFilter;
@@ -36,21 +36,29 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<Stri
     let failed_repos: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
     walker.par_iter().try_for_each(|entry| {
-        let path = entry.path();
-        let repo_name = get_repo_name(path);
-        if !path.is_dir() {
-            return Ok(());
-        }
-        let git_path = path.join(".git");
-        if !git_path.exists() {
-            return Ok(());
-        }
-        match git2::Repository::open(path) {
+        let orig_path = entry.path();
+        let repo_name = orig_path.dir_name();
+        let path_buf = {
+            if orig_path.is_git_directory() {
+                orig_path.to_path_buf()
+            } else if let Some(subdir) = &args.subdir {
+                let subdir_path = orig_path.join(subdir);
+                if subdir_path.is_git_directory() {
+                    subdir_path
+                } else {
+                    // If the subdir does not exist, skip this directory
+                    return Ok(());
+                }
+            } else {
+                // If no subdir is specified and the path is not a git directory, skip it
+                return Ok(());
+            }
+        };
+        match git2::Repository::open(path_buf.as_path()) {
             Ok(repo) => {
-                if let Ok(repo) = RepoInfo::new(&repo, args.remote, args.fetch, path) {
+                if let Ok(repo) = RepoInfo::new(&repo, &repo_name, args.remote, args.fetch) {
                     repos.write().push(repo);
                 } else {
-                    // println!("Failed to process repository: {}", path.display());
                     failed_repos.write().push(repo_name);
                 }
                 Ok(())
@@ -63,16 +71,9 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<Stri
     Ok((repos.read().to_vec(), failed_repos.read().to_vec()))
 }
 
-/// Extracts the repository name from the given path.
-fn get_repo_name(path: &std::path::Path) -> String {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_owned()
-}
-
 /// Initializes the logger for the application.
 ///
+/// # Errors
 /// Returns an error if logger initialization fails.
 pub fn initialize_logger() -> anyhow::Result<()> {
     TermLogger::init(
@@ -87,4 +88,38 @@ pub fn initialize_logger() -> anyhow::Result<()> {
         ColorChoice::Auto,
     )
     .context("Failed to initialize logger")
+}
+
+/// Extension trait for working with Git repository paths.
+pub trait GitPathExt {
+    /// Checks if the path is a Git repository directory.
+    ///
+    /// This checks if the directory exists and contains a `.git` subdirectory.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the path is a Git repository, `false` otherwise.
+    fn is_git_directory(&self) -> bool;
+
+    /// Extracts the repository name from the path.
+    ///
+    /// # Returns
+    ///
+    /// The final component of the path (i.e., the directory name) as a `String`,
+    /// which typically corresponds to the repository name. Returns `"unknown"` if
+    /// the path has no final component or cannot be converted to a valid UTF-8 string.
+    fn dir_name(&self) -> String;
+}
+
+impl GitPathExt for Path {
+    fn is_git_directory(&self) -> bool {
+        self.is_dir() && self.join(".git").exists()
+    }
+
+    fn dir_name(&self) -> String {
+        self.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_owned()
+    }
 }
