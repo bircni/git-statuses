@@ -8,7 +8,7 @@ use clap::{ArgAction, Parser};
     clippy::struct_excessive_bools,
     reason = "This is a CLI tool with many options, and excessive bools are common in such cases."
 )]
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// Directory to scan
@@ -21,6 +21,9 @@ pub struct Args {
     /// Show remote URL
     #[arg(short = 'r', long, action = ArgAction::SetTrue)]
     pub remote: bool,
+    /// Use a condensed layout
+    #[arg(short, long, action = ArgAction::SetTrue)]
+    pub condensed: bool,
     /// Show a summary of the scan
     #[arg(short, long, action = ArgAction::SetTrue)]
     pub summary: bool,
