@@ -21,6 +21,9 @@ pub struct Args {
     /// Show remote URL
     #[arg(short = 'r', long, action = ArgAction::SetTrue)]
     pub remote: bool,
+    /// Use a condensed layout
+    #[arg(short, long, action = ArgAction::SetTrue)]
+    pub condensed: bool,
     /// Show a summary of the scan
     #[arg(short, long, action = ArgAction::SetTrue)]
     pub summary: bool,
