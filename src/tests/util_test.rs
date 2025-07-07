@@ -1,10 +1,15 @@
 use crate::cli::Args;
 use crate::gitinfo::RepoInfo;
 use crate::printer;
-use crate::util::find_repositories;
+use crate::util::{find_repositories, initialize_logger};
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+
+#[test]
+fn test_initialize_logger() {
+    initialize_logger().unwrap();
+}
 
 #[test]
 fn test_find_repositories_empty_dir() {

@@ -34,7 +34,7 @@ Options:
           Print a legend explaining the color codes and statuses used in the output
 
   -s, --subdir <SUBDIR>
-          Look in a specific subdir if it exists for each folder This can be useful, if you dont checkout in a folder directly but in a subfolder like `repo-name/checkout`
+          Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
 
   -h, --help
           Print help
