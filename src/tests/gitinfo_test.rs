@@ -155,22 +155,29 @@ fn test_repo_info_new_with_and_without_remote() {
 
 #[test]
 fn test_get_branch_name_no_head() {
-    let (tmp, repo) = init_temp_repo();
-    // Remove HEAD
-    let head_path = tmp.path().join(".git/HEAD");
-    std::fs::remove_file(&head_path).unwrap();
-    let branch = crate::gitinfo::get_branch_name(&repo);
-    assert_eq!(branch, "(no branch)");
+    let (_tmp, repo) = init_temp_repo();
+    // Simulate a repository with an invalid HEAD by setting it to a non-existent branch
+    repo.set_head("refs/heads/nonexistent-branch").unwrap();
+    let branch = gitinfo::get_branch_name(&repo);
+    assert_eq!(branch, "nonexistent-branch (no commits)");
 }
 
 #[test]
 fn test_get_ahead_behind_error_cases() {
-    let (tmp, repo) = init_temp_repo();
-    // Remove HEAD to trigger an error
-    let head_path = tmp.path().join(".git/HEAD");
-    std::fs::remove_file(&head_path).unwrap();
-    let (ahead, behind) = crate::gitinfo::get_ahead_behind(&repo);
+    let (_tmp, repo) = init_temp_repo();
+    // Simulate a repository with an invalid HEAD by setting it to a non-existent branch
+    repo.set_head("refs/heads/nonexistent-branch").unwrap();
+    let (ahead, behind) = gitinfo::get_ahead_behind(&repo);
     assert_eq!((ahead, behind), (0, 0));
+}
+
+#[test]
+fn test_fetch_origin_failure() {
+    let (_tmp, repo) = init_temp_repo();
+    // Simulate a fetch failure by pointing to a non-existent remote
+    repo.remote("origin", "https://invalid-url").unwrap();
+    let result = gitinfo::fetch_origin(&repo);
+    assert!(result.is_err());
 }
 
 #[test]

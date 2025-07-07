@@ -35,7 +35,7 @@ pub struct Args {
     #[arg(short, long)]
     pub legend: bool,
     /// Look in a specific subdir if it exists for each folder
-    /// This can be useful, if you dont checkout in a folder directly
+    /// This can be useful, if you don't checkout in a folder directly
     /// but in a subfolder like `repo-name/checkout`
     #[arg(short, long)]
     pub subdir: Option<String>,
