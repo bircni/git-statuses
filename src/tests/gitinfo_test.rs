@@ -7,6 +7,9 @@ use crate::gitinfo;
 fn init_temp_repo() -> (tempfile::TempDir, git2::Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
     let repo = git2::Repository::init(tmp_dir.path()).unwrap();
+    let mut config = repo.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
     (tmp_dir, repo)
 }
 
