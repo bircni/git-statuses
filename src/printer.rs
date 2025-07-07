@@ -13,8 +13,13 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         return;
     }
     let mut table = Table::new();
+    let preset = if args.condensed {
+        presets::UTF8_FULL_CONDENSED
+    } else {
+        presets::UTF8_FULL
+    };
     table
-        .load_preset(presets::UTF8_FULL)
+        .load_preset(preset)
         .set_content_arrangement(ContentArrangement::Dynamic);
 
     let mut header = vec![

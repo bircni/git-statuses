@@ -12,10 +12,7 @@ fn test_find_repositories_empty_dir() {
     let args = Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
-        fetch: false,
-        remote: false,
-        summary: false,
-        legend: false,
+        ..Default::default()
     };
     let (repos, _) = find_repositories(&args).unwrap();
     assert!(repos.is_empty());
@@ -39,10 +36,8 @@ fn test_print_repositories_and_summary() {
     let args = Args {
         dir: Path::new(".").to_path_buf(),
         depth: 1,
-        fetch: false,
-        remote: false,
         summary: true,
-        legend: false,
+        ..Default::default()
     };
     let mut repos = vec![repo];
     printer::repositories_table(&mut repos, &args);
@@ -57,10 +52,7 @@ fn test_find_repositories_with_non_git_dir() {
     let args = Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
-        fetch: false,
-        remote: false,
-        summary: false,
-        legend: false,
+        ..Default::default()
     };
     let (repos, _) = find_repositories(&args).unwrap();
     assert!(repos.is_empty());
@@ -83,10 +75,8 @@ fn test_print_repositories_with_remote() {
     let args = Args {
         dir: Path::new(".").to_path_buf(),
         depth: 1,
-        fetch: false,
         remote: true,
-        summary: false,
-        legend: false,
+        ..Default::default()
     };
     let mut repos = vec![repo];
     printer::repositories_table(&mut repos, &args);

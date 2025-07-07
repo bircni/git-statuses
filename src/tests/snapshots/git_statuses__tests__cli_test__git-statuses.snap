@@ -21,6 +21,9 @@ Options:
   -r, --remote
           Show remote URL
 
+  -c, --condensed
+          Use a condensed layout
+
   -s, --summary
           Show a summary of the scan
 
