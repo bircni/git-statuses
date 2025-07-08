@@ -16,11 +16,11 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     if args.legend {
-        printer::print_legend();
+        printer::legend(args.condensed);
         return Ok(());
     }
 
-    let (mut repos, failed_repos) = util::find_repositories(&args)?;
+    let (mut repos, failed_repos) = util::find_repositories(&args);
 
     printer::repositories_table(&mut repos, &args);
     printer::failed_summary(&failed_repos);

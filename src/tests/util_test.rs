@@ -1,5 +1,5 @@
 use crate::cli::Args;
-use crate::gitinfo::RepoInfo;
+use crate::gitinfo::{RepoInfo, status::Status};
 use crate::printer;
 use crate::util::{find_repositories, initialize_logger};
 use std::fs;
@@ -19,8 +19,9 @@ fn test_find_repositories_empty_dir() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, _) = find_repositories(&args).unwrap();
+    let (repos, failed) = find_repositories(&args);
     assert!(repos.is_empty());
+    assert!(failed.is_empty());
 }
 
 #[test]
@@ -32,9 +33,7 @@ fn test_print_repositories_and_summary() {
         ahead: 0,
         behind: 0,
         commits: 1,
-        untracked: 0,
-        status: "Clean".to_owned(),
-        changed: 0,
+        status: Status::Clean,
         has_unpushed: false,
         remote_url: None,
     };
@@ -59,8 +58,9 @@ fn test_find_repositories_with_non_git_dir() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, _) = find_repositories(&args).unwrap();
+    let (repos, failed) = find_repositories(&args);
     assert!(repos.is_empty());
+    assert!(failed.is_empty());
 }
 
 #[test]
@@ -71,9 +71,7 @@ fn test_print_repositories_with_remote() {
         ahead: 0,
         behind: 0,
         commits: 1,
-        untracked: 0,
-        status: "Clean".to_owned(),
-        changed: 0,
+        status: Status::Clean,
         has_unpushed: false,
         remote_url: Some("https://example.com".to_owned()),
     };

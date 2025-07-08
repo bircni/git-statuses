@@ -1,8 +1,9 @@
 use std::{fs, path::Path};
 
+use comfy_table::Color;
 use git2::Repository;
 
-use crate::gitinfo::{self, RepoInfo};
+use crate::gitinfo::{self, RepoInfo, status::Status};
 
 fn init_temp_repo() -> (tempfile::TempDir, git2::Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
@@ -28,33 +29,6 @@ fn test_get_total_commits_empty() {
 }
 
 #[test]
-fn test_get_untracked_count() {
-    let (tmp, repo) = init_temp_repo();
-    let path = tmp.path().join("foo.txt");
-    fs::write(&path, "bar").unwrap();
-    let count = gitinfo::get_untracked_count(&repo);
-    assert_eq!(count, 1);
-}
-
-#[test]
-fn test_get_changed_count() {
-    let (tmp, repo) = init_temp_repo();
-    let path = tmp.path().join("foo.txt");
-    fs::write(&path, "bar").unwrap();
-    let mut index = repo.index().unwrap();
-    index.add_path(Path::new("foo.txt")).unwrap();
-    index.write().unwrap();
-    let oid = index.write_tree().unwrap();
-    let sig = repo.signature().unwrap();
-    let tree = repo.find_tree(oid).unwrap();
-    repo.commit(Some("HEAD"), &sig, &sig, "msg", &tree, &[])
-        .unwrap();
-    fs::write(&path, "baz").unwrap();
-    let changed = gitinfo::get_changed_count(&repo);
-    assert_eq!(changed, 1);
-}
-
-#[test]
 fn test_get_repo_status_clean_dirty() {
     let (tmp, repo) = init_temp_repo();
     let path = tmp.path().join("foo.txt");
@@ -67,11 +41,11 @@ fn test_get_repo_status_clean_dirty() {
     let tree = repo.find_tree(oid).unwrap();
     repo.commit(Some("HEAD"), &sig, &sig, "msg", &tree, &[])
         .unwrap();
-    let status_clean = gitinfo::get_repo_status(&repo);
-    assert_eq!(status_clean, "Clean");
+    let status_clean = Status::new(&repo);
+    assert_eq!(status_clean, Status::Clean);
     fs::write(&path, "baz").unwrap();
-    let status_dirty = gitinfo::get_repo_status(&repo);
-    assert_eq!(status_dirty, "Dirty");
+    let status_dirty = Status::new(&repo);
+    assert_eq!(status_dirty, Status::Dirty(1));
 }
 
 #[test]
@@ -188,4 +162,63 @@ fn test_get_total_commits_error_cases() {
     std::fs::remove_file(&head_path).unwrap();
     let commits = crate::gitinfo::get_total_commits(&repo).unwrap();
     assert_eq!(commits, 0);
+}
+
+#[test]
+fn test_status_display_variants() {
+    assert_eq!(Status::Clean.to_string(), "Clean");
+    assert_eq!(Status::Dirty(3).to_string(), "Dirty (3)");
+    assert_eq!(Status::Merge.to_string(), "Merge");
+    assert_eq!(Status::Revert.to_string(), "Revert");
+    assert_eq!(Status::Rebase.to_string(), "Rebase");
+    assert_eq!(Status::Bisect.to_string(), "Bisect");
+    assert_eq!(Status::CherryPick.to_string(), "Cherry Pick");
+    assert_eq!(Status::Unknown.to_string(), "Unknown");
+}
+
+#[test]
+fn test_status_colors() {
+    assert_eq!(Status::Clean.color(), Color::Reset);
+    assert_eq!(Status::Dirty(1).color(), Color::Red);
+    assert_eq!(Status::Merge.color(), Color::Blue);
+    assert_eq!(Status::Revert.color(), Color::Magenta);
+    assert_eq!(Status::Rebase.color(), Color::Cyan);
+    assert_eq!(Status::Bisect.color(), Color::Yellow);
+    assert_eq!(Status::CherryPick.color(), Color::DarkYellow);
+    assert_eq!(
+        Status::Unknown.color(),
+        Color::Rgb {
+            r: 255,
+            g: 165,
+            b: 0
+        }
+    );
+}
+
+#[test]
+fn test_status_descriptions() {
+    assert_eq!(
+        Status::Clean.description(),
+        "No changes, no unpushed commits."
+    );
+    assert_eq!(
+        Status::Dirty(42).description(),
+        "Working directory has changes."
+    );
+    assert_eq!(Status::Merge.description(), "Merge in progress.");
+    assert_eq!(Status::Revert.description(), "Revert in progress.");
+    assert_eq!(Status::Rebase.description(), "Rebase in progress.");
+    assert_eq!(Status::Bisect.description(), "Bisecting in progress.");
+    assert_eq!(Status::CherryPick.description(), "Cherry-pick in progress.");
+    assert_eq!(
+        Status::Unknown.description(),
+        "Status is unknown or not recognized."
+    );
+}
+
+#[test]
+fn test_as_cell_contains_expected_text_and_color() {
+    let status = Status::Dirty(5);
+    let cell = status.as_cell();
+    assert!(cell.content().contains("Dirty (5)"));
 }

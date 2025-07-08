@@ -1,6 +1,10 @@
-use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table, presets};
+use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
+use strum::IntoEnumIterator;
 
-use crate::{cli::Args, gitinfo::RepoInfo};
+use crate::{
+    cli::Args,
+    gitinfo::{RepoInfo, status::Status},
+};
 
 /// Prints the repository status information as a table or list, depending on CLI options.
 ///
@@ -25,10 +29,8 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     let mut header = vec![
         Cell::new("Directory").add_attribute(Attribute::Bold),
         Cell::new("Branch").add_attribute(Attribute::Bold),
-        Cell::new("Ahead").add_attribute(Attribute::Bold),
-        Cell::new("Behind").add_attribute(Attribute::Bold),
+        Cell::new("Local").add_attribute(Attribute::Bold),
         Cell::new("Commits").add_attribute(Attribute::Bold),
-        Cell::new("Untracked").add_attribute(Attribute::Bold),
         Cell::new("Status").add_attribute(Attribute::Bold),
     ];
     if args.remote {
@@ -37,35 +39,14 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
     repos.sort_by_key(|r| r.name.to_ascii_lowercase());
     for repo in repos {
-        let status_str = if repo.status == "Dirty" {
-            format!("Dirty ({} changed)", repo.changed)
-        } else {
-            repo.status.clone()
-        };
-        let status_cell = match repo.status.as_str() {
-            "Clean" => Cell::new("Clean").fg(Color::Green),
-            "Dirty" => Cell::new(&status_str).fg(Color::Red),
-            _ => Cell::new(&repo.status),
-        };
-        let name_cell = Cell::new(&repo.name).fg(if repo.has_unpushed {
-            Color::Red
-        } else if repo.commits == 0 {
-            Color::Blue
-        } else if repo.ahead > 0 {
-            Color::Yellow
-        } else if repo.behind > 0 {
-            Color::Cyan
-        } else {
-            Color::Reset
-        });
+        let status_cell = repo.status.as_cell();
+        let name_cell = Cell::new(&repo.name).fg(repo.status.color());
 
         let mut row = vec![
             name_cell,
             Cell::new(&repo.branch),
-            Cell::new(repo.ahead),
-            Cell::new(repo.behind),
+            Cell::new(format!("↑{} ↓{}", repo.ahead, repo.behind)),
             Cell::new(repo.commits),
-            Cell::new(repo.untracked),
             status_cell,
         ];
         if args.remote {
@@ -77,25 +58,40 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
 }
 
 /// Prints a legend explaining the color codes and statuses used in the output.
-pub fn print_legend() {
-    println!("\nLegend:");
-    println!("  Clean: No changes, no unpushed commits.");
-    println!("  Dirty: Changes present, may or may not have unpushed commits.");
-    println!("  Unpushed: Commits that are not pushed to the remote repository.");
-    println!("  Red: Repository has unpushed commits.");
-    println!("  Blue: Repository has no commits in the current branch.");
-    println!("  Yellow: Repository is ahead of upstream.");
-    println!("  Cyan: Repository is behind upstream.");
+/// # Arguments
+/// * `condensed` - If true, uses a condensed format for the legend.
+pub fn legend(condensed: bool) {
+    let mut table = Table::new();
+    let preset = if condensed {
+        presets::UTF8_FULL_CONDENSED
+    } else {
+        presets::UTF8_FULL
+    };
+    table
+        .load_preset(preset)
+        .set_content_arrangement(ContentArrangement::Dynamic);
+    table.set_header(vec![
+        Cell::new("Status").add_attribute(Attribute::Bold),
+        Cell::new("Description").add_attribute(Attribute::Bold),
+    ]);
+    Status::iter().for_each(|status| {
+        table.add_row(vec![status.as_cell(), Cell::new(status.description())]);
+    });
+    println!("{table}");
 }
 
 /// Prints a summary of the repository scan (total, clean, dirty, unpushed).
 ///
 /// # Arguments
 /// * `repos` - List of repositories to summarize.
+/// * `failed` - Number of repositories that failed to process.
 pub fn summary(repos: &[RepoInfo], failed: usize) {
     let total = repos.len();
-    let clean = repos.iter().filter(|r| r.status == "Clean").count();
-    let dirty = repos.iter().filter(|r| r.status == "Dirty").count();
+    let clean = repos.iter().filter(|r| r.status == Status::Clean).count();
+    let dirty = repos
+        .iter()
+        .filter(|r| matches!(r.status, Status::Dirty(_)))
+        .count();
     let unpushed = repos.iter().filter(|r| r.has_unpushed).count();
     println!("\nSummary:");
     println!("  Total repositories:   {total}");
