@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Parser as _;
+use clap::{Parser, crate_name, crate_version};
 use cli::Args;
 
 mod cli;
@@ -17,6 +17,15 @@ fn main() -> Result<()> {
     let args = Args::parse();
     if args.legend {
         printer::print_legend();
+        return Ok(());
+    } else if args.version {
+        println!("{} {}", crate_name!(), crate_version!());
+        #[cfg(feature = "update-check")]
+        update_available::print_check_force(
+            crate_name!(),
+            crate_version!(),
+            update_available::Source::CratesIo,
+        );
         return Ok(());
     }
 

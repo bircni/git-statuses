@@ -14,17 +14,22 @@ exclude = ["src/tests/*"]
 [dependencies]
 git2 = { version = "0.20", default-features = false, features = ["https", "ssh", "vendored-openssl"] }
 walkdir = "2.5"
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["cargo", "derive"] }
 anyhow = "1"
 comfy-table = "7.1.4"
 rayon = "1.10.0"
 parking_lot = "0.12.4"
 log = "0.4.27"
 simplelog = "0.12.2"
+update-available = { version = "0.2", optional = true }
 
 [dev-dependencies]
 insta = { version = "1.43", features = ["json"] }
 tempfile = "3.10"
+
+[features]
+default = []
+update-check = ["dep:update-available"]
 
 [lints.rust]
 unsafe_code = "deny"

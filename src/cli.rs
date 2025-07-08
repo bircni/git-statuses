@@ -9,7 +9,7 @@ use clap::Parser;
     reason = "This is a CLI tool with many options, and excessive bools are common in such cases."
 )]
 #[derive(Parser, Debug, Default)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, disable_version_flag = true)]
 pub struct Args {
     /// Directory to scan
     #[arg(default_value = ".")]
@@ -39,4 +39,7 @@ pub struct Args {
     /// but in a subfolder like `repo-name/checkout`
     #[arg(short, long)]
     pub subdir: Option<String>,
+    /// Print the version
+    #[arg(short = 'V', long, help = "Print version")]
+    pub version: bool,
 }
