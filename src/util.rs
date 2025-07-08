@@ -18,10 +18,7 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// A tuple containing:
 /// - A vector of `RepoInfo` containing details about each found repository.
 /// - A vector of strings of failed repositories (those that could not be opened or processed).
-///
-/// # Errors
-/// Returns an error if the directory cannot be read or if any repository cannot be opened.
-pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<String>)> {
+pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
     let min_depth = 1;
     let max_depth = if args.depth > 0 { args.depth } else { 1 };
     let walker = WalkDir::new(&args.dir)
@@ -35,7 +32,7 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<Stri
     let repos: Arc<RwLock<Vec<RepoInfo>>> = Arc::new(RwLock::new(Vec::new()));
     let failed_repos: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
-    walker.par_iter().try_for_each(|entry| {
+    walker.par_iter().for_each(|entry| {
         let orig_path = entry.path();
         let repo_name = orig_path.dir_name();
         let path_buf = {
@@ -47,11 +44,11 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<Stri
                     subdir_path
                 } else {
                     // If the subdir does not exist, skip this directory
-                    return Ok(());
+                    return;
                 }
             } else {
                 // If no subdir is specified and the path is not a git directory, skip it
-                return Ok(());
+                return;
             }
         };
         match git2::Repository::open(path_buf.as_path()) {
@@ -61,14 +58,14 @@ pub fn find_repositories(args: &Args) -> anyhow::Result<(Vec<RepoInfo>, Vec<Stri
                 } else {
                     failed_repos.write().push(repo_name);
                 }
-                Ok(())
             }
             Err(e) => {
-                anyhow::bail!("Could not open repository: {e}");
+                log::debug!("Failed to open repository at {}: {}", path_buf.display(), e);
+                failed_repos.write().push(path_buf.dir_name());
             }
         }
-    })?;
-    Ok((repos.read().to_vec(), failed_repos.read().to_vec()))
+    });
+    (repos.read().to_vec(), failed_repos.read().to_vec())
 }
 
 /// Initializes the logger for the application.

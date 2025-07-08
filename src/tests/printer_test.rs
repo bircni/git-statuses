@@ -1,6 +1,7 @@
 use crate::cli::Args;
 use crate::gitinfo::RepoInfo;
-use crate::printer::{print_legend, repositories_table};
+use crate::gitinfo::status::Status;
+use crate::printer::{legend, repositories_table};
 
 #[test]
 fn test_repositories_table_empty() {
@@ -22,9 +23,7 @@ fn test_repositories_table_with_data() {
         ahead: 1,
         behind: 0,
         commits: 10,
-        untracked: 2,
-        changed: 3,
-        status: "Dirty".to_owned(),
+        status: Status::Dirty(2),
         has_unpushed: true,
         remote_url: Some("https://example.com/repo1.git".to_owned()),
     }];
@@ -40,6 +39,6 @@ fn test_repositories_table_with_data() {
 
 #[test]
 fn test_print_legend() {
-    print_legend();
+    legend(false);
     // Assert that the legend is printed correctly
 }
