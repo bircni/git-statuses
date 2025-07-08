@@ -50,13 +50,15 @@ Arguments:
   [DIR]  Directory to scan [default: .]
 
 Options:
-  -d, --depth <DEPTH>  Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned [default: 1]
-  -r, --remote   Show remote URL
-  -s, --summary  Show a summary of the scan
-  -f, --fetch    Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
-  -l, --legend   Print a legend explaining the color codes and statuses used in the output
-  -h, --help     Print help
-  -V, --version  Print version
+  -d, --depth <DEPTH>    Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned [default: 1]
+  -r, --remote           Show remote URL
+  -c, --condensed        Use a condensed layout
+      --summary          Show a summary of the scan
+  -f, --fetch            Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
+  -l, --legend           Print a legend explaining the color codes and statuses used in the output
+  -s, --subdir <SUBDIR>  Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
+  -h, --help             Print help
+  -V, --version          Print version
 ```
 
 ## Output
