@@ -1,6 +1,9 @@
+use std::io;
+
 use anyhow::Result;
-use clap::Parser as _;
-use cli::Args;
+use clap::{CommandFactory as _, Parser as _};
+
+use crate::cli::Args;
 
 mod cli;
 mod gitinfo;
@@ -15,6 +18,13 @@ fn main() -> Result<()> {
     util::initialize_logger()?;
 
     let args = Args::parse();
+
+    if let Some(shell) = args.completions {
+        let mut cmd = Args::command();
+        clap_complete::generate(shell, &mut cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
+        return Ok(());
+    }
+
     if args.legend {
         printer::legend(args.condensed);
         return Ok(());

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use clap_complete::Shell;
 
 /// Scan the given directory for Git repositories and display their status.
 /// A Repository turns red if it has unpushed changes.
@@ -39,4 +40,7 @@ pub struct Args {
     /// but in a subfolder like `repo-name/checkout`
     #[arg(short, long)]
     pub subdir: Option<String>,
+    /// Generate shell completions
+    #[arg(long, value_name = "SHELL")]
+    pub completions: Option<Shell>,
 }
