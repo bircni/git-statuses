@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.4.0](https://github.com/bircni/git-statuses/compare/0.3.1..0.4.0) - 2025-07-08
+
+### Documentation
+
+- update README with new command-line options and improve example image - ([66ad81a](https://github.com/bircni/git-statuses/commit/66ad81a737652b95a2fad6095a57cecf3501d7d8)) - Nicolas
+
+### Features
+
+- add the ability to use a condensed layout ([#10](https://github.com/bircni/git-statuses/issues/10)) - ([1c626ca](https://github.com/bircni/git-statuses/commit/1c626ca0b423b45ffbe6db05df4fb630f1f3d843)) - Nicolas
+- add subdir option to CLI and RepoInfo, enhance repository path handling - ([ffaa6fb](https://github.com/bircni/git-statuses/commit/ffaa6fbbfdff468a11c49c5c5ff0aba9f7f67d27)) - Nicolas
+- implement RepoStatus handling, enhance repository status display - ([9de728d](https://github.com/bircni/git-statuses/commit/9de728d99d2f0fc76d115d0a632d9e2bdf27239b)) - Nicolas
+
+### Tests
+
+- set git config ([#8](https://github.com/bircni/git-statuses/issues/8)) - ([e0b03ca](https://github.com/bircni/git-statuses/commit/e0b03ca9677759b803970280c8840a44da0df8d8)) - Guilhem Saurel
+- enhance gitinfo tests for invalid HEAD and add printer tests - ([ae99e66](https://github.com/bircni/git-statuses/commit/ae99e66846752dcf7f28a71b13e360bd6d2e57d1)) - Nicolas
+
 ## [0.3.1](https://github.com/bircni/git-statuses/compare/0.3.0..0.3.1) - 2025-07-06
 
 ### Bug Fixes
