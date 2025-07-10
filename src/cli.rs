@@ -43,4 +43,7 @@ pub struct Args {
     /// Generate shell completions
     #[arg(long, value_name = "SHELL")]
     pub completions: Option<Shell>,
+    /// Only show non clean repositories
+    #[arg(long)]
+    pub non_clean: bool,
 }

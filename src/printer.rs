@@ -16,6 +16,13 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         log::info!("No repositories found.");
         return;
     }
+    repos.sort_by_key(|r| r.name.to_ascii_lowercase());
+    let repos_iter: Box<dyn Iterator<Item = &RepoInfo>> = if args.non_clean {
+        Box::new(repos.iter().filter(|r| r.status != Status::Clean))
+    } else {
+        Box::new(repos.iter())
+    };
+
     let mut table = Table::new();
     let preset = if args.condensed {
         presets::UTF8_FULL_CONDENSED
@@ -37,8 +44,8 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         header.push(Cell::new("Remote").add_attribute(Attribute::Bold));
     }
     table.set_header(header);
-    repos.sort_by_key(|r| r.name.to_ascii_lowercase());
-    for repo in repos {
+
+    for repo in repos_iter {
         let status_cell = repo.status.as_cell();
         let name_cell = Cell::new(&repo.name).fg(repo.status.color());
 
