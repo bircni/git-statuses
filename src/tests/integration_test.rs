@@ -5,7 +5,6 @@ use git2::Repository;
 use tempfile::TempDir;
 
 use crate::cli::Args;
-use crate::util::find_repositories;
 
 /// Helper to create a git repository with initial commit
 fn create_git_repo_with_commit(path: &Path, repo_name: &str) -> Repository {
@@ -68,7 +67,7 @@ fn test_integration_single_clean_repository() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -90,7 +89,7 @@ fn test_integration_multiple_repositories() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 3);
     assert_eq!(failed.len(), 0);
@@ -127,7 +126,7 @@ fn test_integration_nested_repositories_with_depth() {
         depth: 1,
         ..Default::default()
     };
-    let (repos_depth1, _) = find_repositories(&args_depth1);
+    let (repos_depth1, _) = args_depth1.find_repositories();
     assert_eq!(repos_depth1.len(), 1);
     assert_eq!(repos_depth1[0].name, "root-repo");
 
@@ -137,7 +136,7 @@ fn test_integration_nested_repositories_with_depth() {
         depth: 3,
         ..Default::default()
     };
-    let (repos_depth3, _) = find_repositories(&args_depth3);
+    let (repos_depth3, _) = args_depth3.find_repositories();
     assert_eq!(repos_depth3.len(), 3);
 
     let repo_names: Vec<&str> = repos_depth3.iter().map(|r| r.name.as_str()).collect();
@@ -165,7 +164,7 @@ fn test_integration_subdir_functionality() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -192,7 +191,7 @@ fn test_integration_mixed_git_and_non_git_directories() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -229,7 +228,7 @@ fn test_integration_repository_with_stashes() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -252,7 +251,7 @@ fn test_integration_repository_with_remote() {
         ..Default::default()
     };
 
-    let (repos, failed) = find_repositories(&args);
+    let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
