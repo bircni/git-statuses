@@ -50,6 +50,9 @@ Options:
   -i, --interactive
           Enable interactive mode to select and interact with repositories
 
+      --json
+          Output in JSON format
+
   -h, --help
           Print help
 

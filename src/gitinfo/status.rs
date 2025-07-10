@@ -7,7 +7,7 @@ use strum_macros::EnumIter;
 use crate::gitinfo;
 
 /// Represents the status of a Git repository.
-#[derive(Default, Clone, Debug, PartialEq, Eq, EnumIter)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, EnumIter, serde::Serialize, serde::Deserialize)]
 pub enum Status {
     /// The repository is clean, with no changes or untracked files.
     Clean,

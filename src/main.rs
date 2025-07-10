@@ -31,7 +31,12 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (mut repos, failed_repos) = util::find_repositories(&args);
+    let (mut repos, failed_repos) = args.find_repositories();
+
+    if args.json {
+        printer::json_output(&repos, &failed_repos);
+        return Ok(());
+    }
 
     // Enter interactive mode if requested
     if args.interactive {
