@@ -50,4 +50,8 @@ pub struct Args {
     /// Only show non clean repositories
     #[arg(long)]
     pub non_clean: bool,
+    /// Output in JSON format
+    #[cfg(feature = "json_format")]
+    #[arg(long)]
+    pub json: bool,
 }

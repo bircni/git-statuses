@@ -132,3 +132,16 @@ pub fn failed_summary(failed_repos: &[String]) {
         }
     }
 }
+
+/// Prints the repository information in JSON format.
+/// # Arguments
+/// * `repos` - List of repositories to output.
+/// * `failed_repos` - List of repository names that failed to process.
+#[cfg(feature = "json_format")]
+pub fn json_output(repos: &[RepoInfo], failed_repos: &[String]) {
+    let output = serde_json::json!({
+        "repositories": repos,
+        "failed": failed_repos
+    });
+    println!("{output}");
+}
