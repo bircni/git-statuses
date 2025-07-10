@@ -17,8 +17,9 @@ pub struct Args {
     pub dir: PathBuf,
     /// Recursively scan all subdirectories to the given depth.
     /// If set to 1, only the current directory is scanned.
+    /// If set to -1, all subdirectories are scanned. (this may take a while)
     #[arg(short, long, default_value = "1")]
-    pub depth: usize,
+    pub depth: i32,
     /// Show remote URL
     #[arg(short = 'r', long)]
     pub remote: bool,
@@ -43,6 +44,9 @@ pub struct Args {
     /// Generate shell completions
     #[arg(long, value_name = "SHELL")]
     pub completions: Option<Shell>,
+    /// Show the path to the repository
+    #[arg(short, long)]
+    pub path: bool,
     /// Only show non clean repositories
     #[arg(long)]
     pub non_clean: bool,

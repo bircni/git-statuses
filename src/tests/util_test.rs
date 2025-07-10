@@ -3,7 +3,7 @@ use crate::gitinfo::{RepoInfo, status::Status};
 use crate::printer;
 use crate::util::{find_repositories, initialize_logger};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 #[test]
@@ -36,6 +36,7 @@ fn test_print_repositories_and_summary() {
         status: Status::Clean,
         has_unpushed: false,
         remote_url: None,
+        path: PathBuf::from("/path/to/dummy"),
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),
@@ -74,6 +75,7 @@ fn test_print_repositories_with_remote() {
         status: Status::Clean,
         has_unpushed: false,
         remote_url: Some("https://example.com".to_owned()),
+        path: PathBuf::from("/path/to/dummy"),
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),

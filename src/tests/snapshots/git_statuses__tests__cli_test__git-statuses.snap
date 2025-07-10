@@ -14,7 +14,7 @@ Arguments:
 
 Options:
   -d, --depth <DEPTH>
-          Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned
+          Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned. If set to -1, all subdirectories are scanned. (this may take a while)
           
           [default: 1]
 
@@ -40,6 +40,9 @@ Options:
           Generate shell completions
           
           [possible values: bash, elvish, fish, powershell, zsh]
+
+  -p, --path
+          Show the path to the repository
 
       --non-clean
           Only show non clean repositories

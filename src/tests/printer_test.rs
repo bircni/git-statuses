@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::cli::Args;
 use crate::gitinfo::RepoInfo;
 use crate::gitinfo::status::Status;
@@ -26,6 +28,7 @@ fn test_repositories_table_with_data() {
         status: Status::Dirty(2),
         has_unpushed: true,
         remote_url: Some("https://example.com/repo1.git".to_owned()),
+        path: PathBuf::from("/path/to/repo1"),
     }];
     let args = Args {
         dir: ".".into(),
