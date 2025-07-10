@@ -19,7 +19,7 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// - A vector of `RepoInfo` containing details about each found repository.
 /// - A vector of strings of failed repositories (those that could not be opened or processed).
 pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
-    let min_depth = 1;
+    let min_depth = 0;
     let max_depth = if args.depth > 0 { args.depth } else { 1 };
     let walker = WalkDir::new(&args.dir)
         .min_depth(min_depth)
