@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.4.1](https://github.com/bircni/git-statuses/compare/0.4.0..0.4.1) - 2025-07-10
+
+### Features
+
+- add the ability to generate shell completions - ([c370b5e](https://github.com/bircni/git-statuses/commit/c370b5e0c5fd2696aaa84fa3b6a9e8d5ef6a0995)) - Fotis Gimian
+- add option to only show non clean repositories - ([9c989c0](https://github.com/bircni/git-statuses/commit/9c989c0b8b3b94549339b5256cdc28d7b6b8f50a)) - Nicolas
+- add option to generate a report directly from a repository - ([a8406c3](https://github.com/bircni/git-statuses/commit/a8406c3acebd45aad8d42244495175dfd00cfa97)) - Nicolas
+- add option to show the path to the repository - ([3993a7e](https://github.com/bircni/git-statuses/commit/3993a7eb7d5d549a94d32efe60c81a4cc05cf81e)) - Nicolas
+
 ## [0.4.0](https://github.com/bircni/git-statuses/compare/0.3.1..0.4.0) - 2025-07-08
 
 ### Documentation

@@ -2,7 +2,7 @@
 name = "git-statuses"
 description = "A tool to display git repository statuses in a table format"
 repository = "https://github.com/bircni/git-statuses"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["bircni"]
 edition = "2024"
 license = "MIT"

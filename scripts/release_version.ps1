@@ -45,7 +45,7 @@ if ($confirmation -ne 'y') {
 }
 # Commit the changes
 git add Cargo.toml CHANGELOG.md Cargo.lock
-git commit -m "release($version)"
+git commit -m "release: $version"
 git tag -a $version -m "Release $version" 
 
 Write-Host "Changes committed and tagged with version $version."
