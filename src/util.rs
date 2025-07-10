@@ -18,16 +18,24 @@ use crate::{cli::Args, gitinfo::RepoInfo};
 /// A tuple containing:
 /// - A vector of `RepoInfo` containing details about each found repository.
 /// - A vector of strings of failed repositories (those that could not be opened or processed).
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "We check i32 to be non-negative, so casting to usize is safe"
+)]
 pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
     let min_depth = 0;
-    let max_depth = if args.depth > 0 { args.depth } else { 1 };
-    let walker = WalkDir::new(&args.dir)
-        .min_depth(min_depth)
-        .max_depth(max_depth)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(std::result::Result::ok)
-        .collect::<Vec<_>>();
+    let walker = {
+        let mut walk = WalkDir::new(&args.dir)
+            .min_depth(min_depth)
+            .follow_links(false);
+
+        if args.depth != -1 && args.depth >= 0 {
+            let max_depth = if args.depth > 0 { args.depth } else { 1 };
+            walk = walk.max_depth(max_depth as usize);
+        }
+
+        walk.into_iter().filter_map(Result::ok).collect::<Vec<_>>()
+    };
 
     let repos: Arc<RwLock<Vec<RepoInfo>>> = Arc::new(RwLock::new(Vec::new()));
     let failed_repos: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));

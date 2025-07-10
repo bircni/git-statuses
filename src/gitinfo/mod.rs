@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::{
+    path::{self, PathBuf},
+    process::Command,
+};
 
 use git2::{Repository, StatusOptions};
 
@@ -25,6 +28,8 @@ pub struct RepoInfo {
     pub has_unpushed: bool,
     /// Remote URL (if available).
     pub remote_url: Option<String>,
+    /// Path to the repository directory.
+    pub path: PathBuf,
 }
 
 impl RepoInfo {
@@ -53,6 +58,7 @@ impl RepoInfo {
             // Attempt to fetch from origin, ignoring errors
             fetch_origin(repo)?;
         }
+        let name = get_repo_name(repo).unwrap_or_else(|| name.to_owned());
         let branch = get_branch_name(repo);
         let (ahead, behind) = get_ahead_behind(repo);
         let commits = get_total_commits(repo)?;
@@ -63,9 +69,10 @@ impl RepoInfo {
         } else {
             None
         };
+        let path = get_repo_path(repo);
 
         Ok(Self {
-            name: name.to_owned(),
+            name,
             branch,
             ahead,
             behind,
@@ -73,8 +80,36 @@ impl RepoInfo {
             status,
             has_unpushed,
             remote_url,
+            path,
         })
     }
+}
+
+fn get_repo_path(repo: &Repository) -> path::PathBuf {
+    let path = repo.path();
+    if path.ends_with(".git") {
+        path.parent().unwrap_or(path).to_path_buf()
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn get_repo_name(repo: &Repository) -> Option<String> {
+    if let Ok(remote) = repo.find_remote("origin")
+        && let Some(url) = remote.url()
+    {
+        {
+            return Some(
+                url.trim_end_matches(".git")
+                    .split('/')
+                    .next_back()
+                    .unwrap_or("unknown")
+                    .to_owned(),
+            );
+        }
+    }
+
+    None
 }
 
 /// Returns the current branch name or a fallback if not available.

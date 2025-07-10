@@ -43,6 +43,9 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     if args.remote {
         header.push(Cell::new("Remote").add_attribute(Attribute::Bold));
     }
+    if args.path {
+        header.push(Cell::new("Path").add_attribute(Attribute::Bold));
+    }
     table.set_header(header);
 
     for repo in repos_iter {
@@ -58,6 +61,9 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         ];
         if args.remote {
             row.push(Cell::new(repo.remote_url.as_deref().unwrap_or("-")));
+        }
+        if args.path {
+            row.push(Cell::new(repo.path.display()));
         }
         table.add_row(row);
     }
