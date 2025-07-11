@@ -231,3 +231,39 @@ pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Checks if the current branch is unpushed or has unpushed commits.
+/// Returns `true` if the branch is not published or ahead of its remote.
+pub fn is_current_branch_unpublished(repo: &Repository) -> bool {
+    // Get the current HEAD
+    let Ok(head) = repo.head() else {
+        return false;
+    };
+
+    // Get the shorthand branch name
+    let Some(local_branch) = head.shorthand() else {
+        return false; // Detached HEAD or unnamed branch
+    };
+
+    // Get the OID (commit ID) of the local HEAD
+    let Some(local_oid) = head.target() else {
+        return false;
+    };
+
+    // Try to find the corresponding remote reference
+    let remote_ref_name = format!("refs/remotes/origin/{local_branch}");
+    let Ok(remote_ref) = repo.find_reference(&remote_ref_name) else {
+        return true; // No remote branch exists — unpublished
+    };
+
+    // Get the remote OID
+    let Some(remote_oid) = remote_ref.target() else {
+        return true; // Remote exists but has no commit? Treat as unpushed
+    };
+
+    // Check if the local branch is ahead of the remote
+    match repo.graph_ahead_behind(local_oid, remote_oid) {
+        Ok((ahead, _)) => ahead > 0,
+        Err(_) => true, // If we can't compare, assume unpushed
+    }
+}
