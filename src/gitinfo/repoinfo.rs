@@ -5,6 +5,7 @@ use git2::Repository;
 use crate::gitinfo::{self, status::Status};
 
 /// Holds information about a Git repository for status display.
+#[cfg_attr(feature = "json_format", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct RepoInfo {
     /// The directory name of the repository.

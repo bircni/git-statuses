@@ -32,6 +32,12 @@ fn main() -> Result<()> {
 
     let (mut repos, failed_repos) = util::find_repositories(&args);
 
+    #[cfg(feature = "json_format")]
+    if args.json {
+        printer::json_output(&repos, &failed_repos);
+        return Ok(());
+    }
+
     printer::repositories_table(&mut repos, &args);
     printer::failed_summary(&failed_repos);
     if args.summary {
