@@ -1,5 +1,5 @@
 use crate::cli::Args;
-use crate::gitinfo::{RepoInfo, status::Status};
+use crate::gitinfo::{repoinfo::RepoInfo, status::Status};
 use crate::printer;
 use crate::util::{find_repositories, initialize_logger};
 use std::fs;
@@ -37,6 +37,8 @@ fn test_print_repositories_and_summary() {
         has_unpushed: false,
         remote_url: None,
         path: PathBuf::from("/path/to/dummy"),
+        stash_count: 0,
+        is_local_only: false,
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),
@@ -76,6 +78,8 @@ fn test_print_repositories_with_remote() {
         has_unpushed: false,
         remote_url: Some("https://example.com".to_owned()),
         path: PathBuf::from("/path/to/dummy"),
+        stash_count: 0,
+        is_local_only: false,
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),

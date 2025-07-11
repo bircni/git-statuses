@@ -1,90 +1,19 @@
 use std::{
-    path::{self, PathBuf},
+    path::{self},
     process::Command,
 };
 
 use git2::{Repository, StatusOptions};
 
-use crate::gitinfo::status::Status;
-
+pub mod repoinfo;
 pub mod status;
 
-/// Holds information about a Git repository for status display.
-#[derive(Clone)]
-pub struct RepoInfo {
-    /// The directory name of the repository.
-    pub name: String,
-    /// The current branch name.
-    pub branch: String,
-    /// Number of commits ahead of upstream.
-    pub ahead: usize,
-    /// Number of commits behind upstream.
-    pub behind: usize,
-    /// Total number of commits in the current branch.
-    pub commits: usize,
-    /// Status of the repository.
-    pub status: Status,
-    /// True if there are unpushed commits.
-    pub has_unpushed: bool,
-    /// Remote URL (if available).
-    pub remote_url: Option<String>,
-    /// Path to the repository directory.
-    pub path: PathBuf,
-}
-
-impl RepoInfo {
-    /// Creates a new `RepoInfo` instance.
-    /// # Arguments
-    /// * `repo` - The Git repository to gather information from.
-    /// * `show_remote` - Whether to include the remote URL in the info.
-    /// * `fetch` - Whether to run a fetch operation before gathering info.
-    /// * `path` - The path to the repository directory.
-    ///
-    /// # Returns
-    /// A `RepoInfo` instance containing the repository's status information.
-    ///
-    /// # Errors
-    /// Returns an error if the repository cannot be opened, or if fetching fails.
-    /// If `fetch` is true, it will attempt to fetch from the "origin"
-    /// remote to update upstream information.
-    /// If fetching fails, it will use that error to return an error.
-    pub fn new(
-        repo: &Repository,
-        name: &str,
-        show_remote: bool,
-        fetch: bool,
-    ) -> anyhow::Result<Self> {
-        if fetch {
-            // Attempt to fetch from origin, ignoring errors
-            fetch_origin(repo)?;
-        }
-        let name = get_repo_name(repo).unwrap_or_else(|| name.to_owned());
-        let branch = get_branch_name(repo);
-        let (ahead, behind) = get_ahead_behind(repo);
-        let commits = get_total_commits(repo)?;
-        let status = Status::new(repo);
-        let has_unpushed = ahead > 0;
-        let remote_url = if show_remote {
-            get_remote_url(repo)
-        } else {
-            None
-        };
-        let path = get_repo_path(repo);
-
-        Ok(Self {
-            name,
-            branch,
-            ahead,
-            behind,
-            commits,
-            status,
-            has_unpushed,
-            remote_url,
-            path,
-        })
-    }
-}
-
+/// Gets the path of the repository.
+/// If the path ends with `.git`, it returns the parent directory.
+/// # Arguments
+/// * `repo` - The Git repository to check for the path.
+/// # Returns
+/// A `PathBuf` containing the repository path.
 fn get_repo_path(repo: &Repository) -> path::PathBuf {
     let path = repo.path();
     if path.ends_with(".git") {
@@ -94,6 +23,12 @@ fn get_repo_path(repo: &Repository) -> path::PathBuf {
     }
 }
 
+/// Gets the name of the repository from the remote URL.
+/// If the remote URL is not available, it returns `None`.
+/// # Arguments
+/// * `repo` - The Git repository to check for the name.
+/// # Returns
+/// An `Option<String>` containing the repository name if found, or `None` if not.
 fn get_repo_name(repo: &Repository) -> Option<String> {
     if let Ok(remote) = repo.find_remote("origin")
         && let Some(url) = remote.url()
@@ -138,14 +73,16 @@ pub fn get_branch_name(repo: &Repository) -> String {
     "(no branch)".to_owned()
 }
 
-/// Get the number of commits ahead and behind the upstream branch.
-/// If the current branch has no upstream, it returns (0, 0).
+/// Get the number of commits ahead and behind the upstream branch, and whether the branch is local-only.
+/// If the current branch has no upstream, it returns (0, 0, true).
 /// # Arguments
 /// * `repo` - The Git repository to check for ahead/behind status.
 /// # Returns
-/// A tuple containing the number of commits ahead and behind the upstream branch.
-pub fn get_ahead_behind(repo: &Repository) -> (usize, usize) {
-    let Ok(head) = repo.head() else { return (0, 0) };
+/// A tuple containing the number of commits ahead, behind, and whether the branch is local-only.
+pub fn get_ahead_behind_and_local_status(repo: &Repository) -> (usize, usize, bool) {
+    let Ok(head) = repo.head() else {
+        return (0, 0, true);
+    };
     let branch = head.shorthand().map_or_else(
         || None,
         |name| repo.find_branch(name, git2::BranchType::Local).ok(),
@@ -156,10 +93,11 @@ pub fn get_ahead_behind(repo: &Repository) -> (usize, usize) {
         let local_oid = branch.get().target();
         let upstream_oid = upstream.get().target();
         if let (Some(local), Some(up)) = (local_oid, upstream_oid) {
-            return repo.graph_ahead_behind(local, up).unwrap_or((0, 0));
+            let (ahead, behind) = repo.graph_ahead_behind(local, up).unwrap_or((0, 0));
+            return (ahead, behind, false);
         }
     }
-    (0, 0)
+    (0, 0, true)
 }
 
 /// Gets the total number of commits in the current branch.
@@ -230,4 +168,19 @@ pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Returns the number of stashes in the repository.
+/// # Arguments
+/// * `repo` - The Git repository to check for stashes.
+/// # Returns
+/// The number of stashes in the repository.
+/// Returns the number of stashes in the repository using `git2`.
+pub fn get_stash_count(repo: &mut Repository) -> usize {
+    let mut count = 0;
+    let _ = repo.stash_foreach(|_, _, _| {
+        count += 1;
+        true // continue iterating
+    });
+    count
 }
