@@ -27,6 +27,8 @@ pub enum Status {
     Unpushed,
     /// The branch is not published.
     Unpublished,
+    /// The repository is in a detached HEAD state or has no upstream branch.
+    Detached,
     /// The status of the repository is unknown or not recognized.
     #[default]
     Unknown,
@@ -41,52 +43,48 @@ impl Status {
     /// * `Clean` - No changes, no untracked files.
     /// * `Dirty` - There are changes or untracked files.
     pub fn new(repo: &Repository) -> Self {
-        let mut state = match repo.state() {
-            RepositoryState::Clean => Self::Clean,
-            RepositoryState::Merge => Self::Merge,
-            RepositoryState::Revert | RepositoryState::RevertSequence => Self::Revert,
-            RepositoryState::CherryPick | RepositoryState::CherryPickSequence => Self::CherryPick,
-            RepositoryState::Bisect => Self::Bisect,
+        // Step 1: Handle explicit git states
+        match repo.state() {
+            RepositoryState::Clean => {}
+            RepositoryState::Merge => return Self::Merge,
+            RepositoryState::Revert | RepositoryState::RevertSequence => return Self::Revert,
+            RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
+                return Self::CherryPick;
+            }
+            RepositoryState::Bisect => return Self::Bisect,
             RepositoryState::Rebase
             | RepositoryState::RebaseInteractive
-            | RepositoryState::RebaseMerge => Self::Rebase,
-            RepositoryState::ApplyMailbox | RepositoryState::ApplyMailboxOrRebase => Self::Unknown,
-        };
-        if matches!(state, Self::Clean | Self::Unknown) {
-            let mut opts = StatusOptions::new();
-            opts.include_untracked(true).include_ignored(false);
-            state = repo.statuses(Some(&mut opts)).map_or_else(
-                |_| Self::Unknown,
-                |statuses| {
-                    if statuses.iter().all(|e| {
-                        e.status().is_ignored()
-                            || !e.status().is_wt_new()
-                                && !e.status().is_index_new()
-                                && !e.status().is_wt_modified()
-                                && !e.status().is_index_modified()
-                                && !e.status().is_wt_deleted()
-                                && !e.status().is_index_deleted()
-                                && !e.status().is_conflicted()
-                    }) {
-                        if gitinfo::get_ahead_behind(repo).0 == 0
-                            && !gitinfo::is_current_branch_unpublished(repo)
-                        {
-                            Self::Clean
-                        } else if gitinfo::is_current_branch_unpublished(repo) {
-                            // If the branch is unpublished, we consider it unpublished
-                            Self::Unpublished
-                        } else {
-                            // If there are unpushed commits, we consider it unpushed
-                            Self::Unpushed
-                        }
-                    } else {
-                        Self::Dirty(gitinfo::get_changed_count(repo))
-                    }
-                },
-            );
+            | RepositoryState::RebaseMerge => return Self::Rebase,
+            RepositoryState::ApplyMailbox | RepositoryState::ApplyMailboxOrRebase => {
+                return Self::Unknown;
+            }
         }
 
-        state
+        // Step 2: Check working directory status
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true).include_ignored(false);
+
+        repo.statuses(Some(&mut opts))
+            .map_or(Self::Unknown, |statuses| {
+                if statuses.iter().all(|e| {
+                    e.status().is_ignored()
+                        || !e.status().intersects(
+                            git2::Status::WT_NEW
+                                | git2::Status::WT_MODIFIED
+                                | git2::Status::WT_DELETED
+                                | git2::Status::INDEX_NEW
+                                | git2::Status::INDEX_MODIFIED
+                                | git2::Status::INDEX_DELETED
+                                | git2::Status::CONFLICTED,
+                        )
+                }) {
+                    // Clean working directory – check branch push state
+                    gitinfo::get_branch_push_status(repo)
+                } else {
+                    // Dirty working directory – report how many changes
+                    Self::Dirty(gitinfo::get_changed_count(repo))
+                }
+            })
     }
 
     /// Get the color associated with the status.
@@ -100,6 +98,15 @@ impl Status {
             Self::Rebase => Color::Cyan,
             Self::Bisect => Color::Yellow,
             Self::CherryPick => Color::DarkYellow,
+            Self::Detached =>
+            // Purple color for detached HEAD state
+            {
+                Color::Rgb {
+                    r: 255,
+                    g: 0,
+                    b: 255,
+                }
+            }
             Self::Unknown =>
             // Orange color for unknown status
             {
@@ -125,14 +132,17 @@ impl Status {
     pub const fn description(&self) -> &str {
         match self {
             Self::Clean => "No changes, no unpushed commits.",
+            Self::Detached => {
+                "The repository is in a detached HEAD state or has no upstream branch."
+            }
             Self::Dirty(_) => "Working directory has changes.",
             Self::Merge => "Merge in progress.",
             Self::Revert => "Revert in progress.",
             Self::Rebase => "Rebase in progress.",
             Self::Bisect => "Bisecting in progress.",
             Self::CherryPick => "Cherry-pick in progress.",
-            Self::Unpushed => "There are unpushed commits.",
             Self::Unpublished => "The branch is not published.",
+            Self::Unpushed => "There are unpushed commits.",
             Self::Unknown => "Status is unknown or not recognized.",
         }
     }
@@ -142,6 +152,7 @@ impl Display for Status {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Clean => write!(f, "Clean"),
+            Self::Detached => write!(f, "Detached"),
             Self::Dirty(count) => write!(f, "Dirty ({count})"),
             Self::Merge => write!(f, "Merge"),
             Self::Revert => write!(f, "Revert"),

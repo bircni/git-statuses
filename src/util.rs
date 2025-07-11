@@ -7,7 +7,7 @@ use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
 use walkdir::WalkDir;
 
-use crate::{cli::Args, gitinfo::RepoInfo};
+use crate::{cli::Args, gitinfo::repoinfo::RepoInfo};
 
 /// Scans the given directory (recursively if requested) for Git repositories and collects their status information.
 ///
@@ -60,8 +60,9 @@ pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
             }
         };
         match git2::Repository::open(path_buf.as_path()) {
-            Ok(repo) => {
-                if let Ok(repo) = RepoInfo::new(&repo, &repo_name, args.remote, args.fetch) {
+            Ok(mut git_repo) => {
+                if let Ok(repo) = RepoInfo::new(&mut git_repo, &repo_name, args.remote, args.fetch)
+                {
                     repos.write().push(repo);
                 } else {
                     failed_repos.write().push(repo_name);

@@ -3,7 +3,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     cli::Args,
-    gitinfo::{RepoInfo, status::Status},
+    gitinfo::{repoinfo::RepoInfo, status::Status},
 };
 
 /// Prints the repository status information as a table or list, depending on CLI options.
@@ -49,15 +49,14 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let status_cell = repo.status.as_cell();
         let name_cell = Cell::new(&repo.name).fg(repo.status.color());
 
         let mut row = vec![
             name_cell,
             Cell::new(&repo.branch),
-            Cell::new(format!("↑{} ↓{}", repo.ahead, repo.behind)),
+            Cell::new(repo.format_local_status()),
             Cell::new(repo.commits),
-            status_cell,
+            Cell::new(repo.format_status_with_stash()).fg(repo.status.color()),
         ];
         if args.remote {
             row.push(Cell::new(repo.remote_url.as_deref().unwrap_or("-")));
@@ -91,6 +90,8 @@ pub fn legend(condensed: bool) {
         table.add_row(vec![status.as_cell(), Cell::new(status.description())]);
     });
     println!("{table}");
+    println!("The counts in brackets indicate the number of changed files.");
+    println!("The counts in brackets with an asterisk (*) indicate the number of stashes.");
 }
 
 /// Prints a summary of the repository scan (total, clean, dirty, unpushed).
@@ -106,11 +107,15 @@ pub fn summary(repos: &[RepoInfo], failed: usize) {
         .filter(|r| matches!(r.status, Status::Dirty(_)))
         .count();
     let unpushed = repos.iter().filter(|r| r.has_unpushed).count();
+    let with_stashes = repos.iter().filter(|r| r.stash_count > 0).count();
+    let local_only = repos.iter().filter(|r| r.is_local_only).count();
     println!("\nSummary:");
     println!("  Total repositories:   {total}");
     println!("  Clean:                {clean}");
     println!("  With changes:         {dirty}");
     println!("  With unpushed:        {unpushed}");
+    println!("  With stashes:         {with_stashes}");
+    println!("  Local-only branches:  {local_only}");
     if failed > 0 {
         println!("  Failed to process:    {failed}");
     }
