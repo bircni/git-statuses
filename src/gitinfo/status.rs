@@ -23,6 +23,10 @@ pub enum Status {
     Bisect,
     /// The repository is in a cherry-pick state.
     CherryPick,
+    /// Unpushed commits or changes are present.
+    Unpushed,
+    /// The branch is not published.
+    Unpublished,
     /// The status of the repository is unknown or not recognized.
     #[default]
     Unknown,
@@ -64,7 +68,17 @@ impl Status {
                                 && !e.status().is_index_deleted()
                                 && !e.status().is_conflicted()
                     }) {
-                        Self::Clean
+                        if gitinfo::get_ahead_behind(repo).0 == 0
+                            && !gitinfo::is_current_branch_unpublished(repo)
+                        {
+                            Self::Clean
+                        } else if gitinfo::is_current_branch_unpublished(repo) {
+                            // If the branch is unpublished, we consider it unpublished
+                            Self::Unpublished
+                        } else {
+                            // If there are unpushed commits, we consider it unpushed
+                            Self::Unpushed
+                        }
                     } else {
                         Self::Dirty(gitinfo::get_changed_count(repo))
                     }
@@ -80,7 +94,7 @@ impl Status {
     pub const fn color(&self) -> Color {
         match self {
             Self::Clean => Color::Reset,
-            Self::Dirty(_) => Color::Red,
+            Self::Dirty(_) | Self::Unpushed | Self::Unpublished => Color::Red,
             Self::Merge => Color::Blue,
             Self::Revert => Color::Magenta,
             Self::Rebase => Color::Cyan,
@@ -117,6 +131,8 @@ impl Status {
             Self::Rebase => "Rebase in progress.",
             Self::Bisect => "Bisecting in progress.",
             Self::CherryPick => "Cherry-pick in progress.",
+            Self::Unpushed => "There are unpushed commits.",
+            Self::Unpublished => "The branch is not published.",
             Self::Unknown => "Status is unknown or not recognized.",
         }
     }
@@ -132,6 +148,8 @@ impl Display for Status {
             Self::Rebase => write!(f, "Rebase"),
             Self::Bisect => write!(f, "Bisect"),
             Self::CherryPick => write!(f, "Cherry Pick"),
+            Self::Unpushed => write!(f, "Unpushed"),
+            Self::Unpublished => write!(f, "Unpublished"),
             Self::Unknown => write!(f, "Unknown"),
         }
     }
