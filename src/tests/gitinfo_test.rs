@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use comfy_table::Color;
 use git2::Repository;
 
-use crate::gitinfo::{self, RepoInfo, status::Status};
+use crate::gitinfo::{self, repoinfo::RepoInfo, status::Status};
 
 fn init_temp_repo() -> (tempfile::TempDir, git2::Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
@@ -41,8 +41,8 @@ fn test_get_repo_status_clean_dirty() {
     let tree = repo.find_tree(oid).unwrap();
     repo.commit(Some("HEAD"), &sig, &sig, "msg", &tree, &[])
         .unwrap();
-    let status_clean = Status::new(&repo);
-    assert_eq!(status_clean, Status::Clean);
+    let status_unpublished = Status::new(&repo);
+    assert_eq!(status_unpublished, Status::Unpublished);
     fs::write(&path, "baz").unwrap();
     let status_dirty = Status::new(&repo);
     assert_eq!(status_dirty, Status::Dirty(1));
@@ -51,8 +51,8 @@ fn test_get_repo_status_clean_dirty() {
 #[test]
 fn test_get_ahead_behind_no_upstream() {
     let (_tmp, repo) = init_temp_repo();
-    let (ahead, behind) = gitinfo::get_ahead_behind(&repo);
-    assert_eq!((ahead, behind), (0, 0));
+    let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
+    assert_eq!((ahead, behind, is_local_only), (0, 0, true));
 }
 
 #[test]
@@ -118,12 +118,12 @@ fn test_get_total_commits_multiple() {
 
 #[test]
 fn test_repo_info_new_with_and_without_remote() {
-    let (_, repo) = init_temp_repo();
+    let (_, mut repo) = init_temp_repo();
     // Without remote
-    let info = RepoInfo::new(&repo, "tmp", false, false);
+    let info = RepoInfo::new(&mut repo, "tmp", false, false);
     info.unwrap();
     // With remote (origin does not exist)
-    let info_remote = RepoInfo::new(&repo, "tmp", true, false);
+    let info_remote = RepoInfo::new(&mut repo, "tmp", true, false);
     info_remote.unwrap();
 }
 
@@ -141,8 +141,8 @@ fn test_get_ahead_behind_error_cases() {
     let (_tmp, repo) = init_temp_repo();
     // Simulate a repository with an invalid HEAD by setting it to a non-existent branch
     repo.set_head("refs/heads/nonexistent-branch").unwrap();
-    let (ahead, behind) = gitinfo::get_ahead_behind(&repo);
-    assert_eq!((ahead, behind), (0, 0));
+    let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
+    assert_eq!((ahead, behind, is_local_only), (0, 0, true));
 }
 
 #[test]
@@ -221,4 +221,26 @@ fn test_as_cell_contains_expected_text_and_color() {
     let status = Status::Dirty(5);
     let cell = status.as_cell();
     assert!(cell.content().contains("Dirty (5)"));
+}
+
+#[test]
+fn test_get_stash_count_empty() {
+    let (_tmp, mut repo) = init_temp_repo();
+    let stash_count = gitinfo::get_stash_count(&mut repo);
+    assert_eq!(stash_count, 0);
+}
+
+#[test]
+fn test_get_ahead_behind_and_local_status_no_upstream() {
+    let (_tmp, repo) = init_temp_repo();
+    let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
+    assert_eq!((ahead, behind, is_local_only), (0, 0, true));
+}
+
+#[test]
+fn test_repo_info_includes_stash_and_local_status() {
+    let (_tmp, mut repo) = init_temp_repo();
+    let info = RepoInfo::new(&mut repo, "test", false, false).unwrap();
+    assert_eq!(info.stash_count, 0);
+    assert!(info.is_local_only);
 }
