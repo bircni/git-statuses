@@ -13,7 +13,7 @@ fn test_repositories_table_empty() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    let _ = repositories_table(&mut repos, &args);
     // Assert that no panic occurs and no output is generated
 }
 
@@ -38,7 +38,7 @@ fn test_repositories_table_with_data() {
         remote: true,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    let _ = repositories_table(&mut repos, &args);
     // Assert that the table is printed correctly
 }
 
@@ -83,6 +83,107 @@ fn test_repositories_table_with_stashes_and_local_only() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    let _ = repositories_table(&mut repos, &args);
     // Assert that stash info and local-only status are displayed correctly
+}
+
+#[test]
+fn test_repositories_table_json_output() {
+    let mut repos = vec![RepoInfo {
+        name: "test-repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 1,
+        behind: 0,
+        commits: 10,
+        status: Status::Dirty(2),
+        has_unpushed: true,
+        remote_url: Some("https://example.com/test-repo.git".to_owned()),
+        path: PathBuf::from("/path/to/test-repo"),
+        stash_count: 0,
+        is_local_only: false,
+    }];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        output: "json".to_owned(),
+        ..Default::default()
+    };
+    let result = repositories_table(&mut repos, &args);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_repositories_table_html_output() {
+    let mut repos = vec![RepoInfo {
+        name: "test-repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 1,
+        behind: 0,
+        commits: 10,
+        status: Status::Clean,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/test-repo"),
+        stash_count: 0,
+        is_local_only: false,
+    }];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        output: "html".to_owned(),
+        ..Default::default()
+    };
+    let result = repositories_table(&mut repos, &args);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_repositories_table_invalid_format() {
+    let mut repos = vec![RepoInfo {
+        name: "test-repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 5,
+        status: Status::Clean,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/test-repo"),
+        stash_count: 0,
+        is_local_only: false,
+    }];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        output: "invalid".to_owned(),
+        ..Default::default()
+    };
+    let result = repositories_table(&mut repos, &args);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_repositories_table_file_output_error() {
+    let mut repos = vec![RepoInfo {
+        name: "test-repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 5,
+        status: Status::Clean,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/test-repo"),
+        stash_count: 0,
+        is_local_only: false,
+    }];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        output: "table".to_owned(),
+        output_file: Some(PathBuf::from("/tmp/test.txt")),
+        ..Default::default()
+    };
+    let result = repositories_table(&mut repos, &args);
+    assert!(result.is_err());
 }

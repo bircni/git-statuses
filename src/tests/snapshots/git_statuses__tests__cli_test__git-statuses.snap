@@ -47,6 +47,14 @@ Options:
       --non-clean
           Only show non clean repositories
 
+      --output <OUTPUT>
+          Output format
+          
+          [default: table]
+
+      --output-file <OUTPUT_FILE>
+          Output file path (for json/html formats)
+
   -h, --help
           Print help
 

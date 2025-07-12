@@ -2,12 +2,13 @@ use std::fmt::{self, Display, Formatter};
 
 use comfy_table::{Cell, Color};
 use git2::{Repository, RepositoryState, StatusOptions};
+use serde::Serialize;
 use strum_macros::EnumIter;
 
 use crate::gitinfo;
 
 /// Represents the status of a Git repository.
-#[derive(Default, Clone, Debug, PartialEq, Eq, EnumIter)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, EnumIter, Serialize)]
 pub enum Status {
     /// The repository is clean, with no changes or untracked files.
     Clean,

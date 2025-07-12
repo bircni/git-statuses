@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
 use git2::Repository;
+use serde::Serialize;
 
 use crate::gitinfo::{self, status::Status};
 
 /// Holds information about a Git repository for status display.
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct RepoInfo {
     /// The directory name of the repository.
     pub name: String,
