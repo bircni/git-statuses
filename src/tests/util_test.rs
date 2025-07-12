@@ -47,7 +47,7 @@ fn test_print_repositories_and_summary() {
         ..Default::default()
     };
     let mut repos = vec![repo];
-    printer::repositories_table(&mut repos, &args);
+    let _ = printer::repositories_table(&mut repos, &args);
     printer::summary(&repos, 0);
 }
 
@@ -88,5 +88,5 @@ fn test_print_repositories_with_remote() {
         ..Default::default()
     };
     let mut repos = vec![repo];
-    printer::repositories_table(&mut repos, &args);
+    let _ = printer::repositories_table(&mut repos, &args);
 }

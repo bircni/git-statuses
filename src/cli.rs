@@ -50,4 +50,10 @@ pub struct Args {
     /// Only show non clean repositories
     #[arg(long)]
     pub non_clean: bool,
+    /// Output format
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    /// Output file path (for json/html formats)
+    #[arg(long)]
+    pub output_file: Option<std::path::PathBuf>,
 }

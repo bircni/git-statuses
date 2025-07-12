@@ -7,6 +7,7 @@ use crate::cli::Args;
 
 mod cli;
 mod gitinfo;
+mod output;
 mod printer;
 #[cfg(test)]
 mod tests;
@@ -32,7 +33,7 @@ fn main() -> Result<()> {
 
     let (mut repos, failed_repos) = util::find_repositories(&args);
 
-    printer::repositories_table(&mut repos, &args);
+    printer::repositories_table(&mut repos, &args)?;
     printer::failed_summary(&failed_repos);
     if args.summary {
         printer::summary(&repos, failed_repos.len());
