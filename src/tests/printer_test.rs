@@ -318,7 +318,7 @@ fn test_summary_comprehensive() {
             has_unpushed: false,
             remote_url: None,
             path: PathBuf::from("/path/to/clean2"),
-            stash_count: 1, // has stash
+            stash_count: 1,      // has stash
             is_local_only: true, // local only
         },
         RepoInfo {
@@ -335,9 +335,9 @@ fn test_summary_comprehensive() {
             is_local_only: false,
         },
     ];
-    
+
     summary(&repos, 1); // 1 failed repo
-    
+
     // Should show:
     // - 3 total repos
     // - 2 clean repos
@@ -371,25 +371,23 @@ fn test_summary_edge_cases() {
     // Test with no repos
     let empty_repos: Vec<RepoInfo> = vec![];
     summary(&empty_repos, 0);
-    
+
     // Test with only failed repos
     summary(&empty_repos, 5);
-    
+
     // Test with mixed edge cases
-    let edge_repos = vec![
-        RepoInfo {
-            name: "unknown-status".to_owned(),
-            branch: "detached".to_owned(),
-            ahead: 0,
-            behind: 0,
-            commits: 0,
-            status: Status::Unknown,
-            has_unpushed: false,
-            remote_url: None,
-            path: PathBuf::from("/path/to/unknown"),
-            stash_count: 0,
-            is_local_only: true,
-        },
-    ];
+    let edge_repos = vec![RepoInfo {
+        name: "unknown-status".to_owned(),
+        branch: "detached".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 0,
+        status: Status::Unknown,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/unknown"),
+        stash_count: 0,
+        is_local_only: true,
+    }];
     summary(&edge_repos, 0);
 }

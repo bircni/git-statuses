@@ -1,6 +1,6 @@
+use std::fs;
 use std::process::{Command, Stdio};
 use tempfile::TempDir;
-use std::fs;
 
 /// Test the main binary execution with various flags
 /// These are more like end-to-end tests
@@ -86,7 +86,7 @@ fn test_completions_bash() {
 #[test]
 fn test_empty_directory() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
         .args(&["run", "--", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
@@ -116,31 +116,31 @@ fn test_nonexistent_directory() {
 #[test]
 fn test_with_actual_git_repo() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create a git repository
     let repo_path = temp_dir.path().join("test-repo");
     fs::create_dir_all(&repo_path).unwrap();
-    
+
     // Initialize git repo
     Command::new("git")
         .args(&["init"])
         .current_dir(&repo_path)
         .output()
         .expect("Failed to init git repo");
-    
+
     // Configure git
     Command::new("git")
         .args(&["config", "user.name", "Test User"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
-    
+
     Command::new("git")
         .args(&["config", "user.email", "test@example.com"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
-    
+
     // Create and commit a file
     fs::write(repo_path.join("README.md"), "# Test Repo").unwrap();
     Command::new("git")
@@ -148,13 +148,13 @@ fn test_with_actual_git_repo() {
         .current_dir(&repo_path)
         .output()
         .unwrap();
-    
+
     Command::new("git")
         .args(&["commit", "-m", "Initial commit"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
-    
+
     // Run git-statuses on the directory
     let output = Command::new("cargo")
         .args(&["run", "--", temp_dir.path().to_str().unwrap()])
@@ -172,7 +172,7 @@ fn test_with_actual_git_repo() {
 #[test]
 fn test_with_summary_flag() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
         .args(&["run", "--", "--summary", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
@@ -189,14 +189,20 @@ fn test_with_summary_flag() {
 #[test]
 fn test_depth_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nested structure
     let level1 = temp_dir.path().join("level1");
     let level2 = level1.join("level2");
     fs::create_dir_all(&level2).unwrap();
-    
+
     let output = Command::new("cargo")
-        .args(&["run", "--", "--depth", "3", temp_dir.path().to_str().unwrap()])
+        .args(&[
+            "run",
+            "--",
+            "--depth",
+            "3",
+            temp_dir.path().to_str().unwrap(),
+        ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
@@ -209,7 +215,7 @@ fn test_depth_flag_integration() {
 #[test]
 fn test_remote_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
         .args(&["run", "--", "--remote", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
@@ -224,9 +230,14 @@ fn test_remote_flag_integration() {
 #[test]
 fn test_condensed_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
-        .args(&["run", "--", "--condensed", temp_dir.path().to_str().unwrap()])
+        .args(&[
+            "run",
+            "--",
+            "--condensed",
+            temp_dir.path().to_str().unwrap(),
+        ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
@@ -239,15 +250,17 @@ fn test_condensed_flag_integration() {
 #[test]
 fn test_multiple_flags_combination() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
         .args(&[
-            "run", "--", 
-            "--remote", 
-            "--condensed", 
+            "run",
+            "--",
+            "--remote",
+            "--condensed",
             "--summary",
-            "--depth", "2",
-            temp_dir.path().to_str().unwrap()
+            "--depth",
+            "2",
+            temp_dir.path().to_str().unwrap(),
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -263,7 +276,7 @@ fn test_multiple_flags_combination() {
 #[test]
 fn test_path_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
         .args(&["run", "--", "--path", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
@@ -278,9 +291,14 @@ fn test_path_flag_integration() {
 #[test]
 fn test_non_clean_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let output = Command::new("cargo")
-        .args(&["run", "--", "--non-clean", temp_dir.path().to_str().unwrap()])
+        .args(&[
+            "run",
+            "--",
+            "--non-clean",
+            temp_dir.path().to_str().unwrap(),
+        ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
