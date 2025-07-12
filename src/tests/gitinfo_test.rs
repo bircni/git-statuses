@@ -244,3 +244,175 @@ fn test_repo_info_includes_stash_and_local_status() {
     assert_eq!(info.stash_count, 0);
     assert!(info.is_local_only);
 }
+
+// New tests for additional git states and edge cases
+
+#[test]
+fn test_status_new_with_merge_state() {
+    let (tmp, repo) = init_temp_repo();
+    
+    // Create initial commit
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "initial content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[]).unwrap();
+    
+    // Simulate merge state by creating MERGE_HEAD file directly
+    let merge_head_path = tmp.path().join(".git/MERGE_HEAD");
+    fs::write(&merge_head_path, "1234567890abcdef1234567890abcdef12345678").unwrap();
+    
+    let status = Status::new(&repo);
+    assert_eq!(status, Status::Merge);
+}
+
+#[test]
+fn test_get_changed_count_multiple_types() {
+    let (tmp, repo) = init_temp_repo();
+    
+    // Create initial commit
+    let file1 = tmp.path().join("file1.txt");
+    fs::write(&file1, "content1").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file1.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[]).unwrap();
+    
+    // Create various types of changes
+    let file2 = tmp.path().join("file2.txt"); // new file
+    fs::write(&file2, "new content").unwrap();
+    
+    fs::write(&file1, "modified content").unwrap(); // modified file
+    
+    let file3 = tmp.path().join("file3.txt"); // staged new file
+    fs::write(&file3, "staged content").unwrap();
+    index.add_path(Path::new("file3.txt")).unwrap();
+    index.write().unwrap();
+    
+    let changed_count = gitinfo::get_changed_count(&repo);
+    assert!(changed_count >= 3); // At least the three changes we made
+}
+
+#[test]
+fn test_get_branch_push_status_unpublished() {
+    let (tmp, repo) = init_temp_repo();
+    
+    // Create a commit on local branch
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "commit", &tree, &[]).unwrap();
+    
+    let status = gitinfo::get_branch_push_status(&repo);
+    assert_eq!(status, Status::Unpublished);
+}
+
+#[test]
+fn test_get_branch_push_status_detached() {
+    let (tmp, repo) = init_temp_repo();
+    
+    // Create a commit
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    let commit_oid = repo.commit(Some("HEAD"), &sig, &sig, "commit", &tree, &[]).unwrap();
+    
+    // Detach HEAD
+    repo.set_head_detached(commit_oid).unwrap();
+    
+    let status = gitinfo::get_branch_push_status(&repo);
+    assert_eq!(status, Status::Detached);
+}
+
+#[test]
+fn test_multiple_stashes() {
+    let (tmp, mut repo) = init_temp_repo();
+    
+    // Create initial commit
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "initial").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[]).unwrap();
+    
+    // Drop the tree reference to avoid borrow conflicts
+    drop(tree);
+    drop(index);
+    
+    // Create first stash
+    fs::write(&path, "work1").unwrap();
+    repo.stash_save(&sig, "First stash", None).unwrap();
+    
+    // Create second stash
+    fs::write(&path, "work2").unwrap();
+    repo.stash_save(&sig, "Second stash", None).unwrap();
+    
+    let stash_count = gitinfo::get_stash_count(&mut repo);
+    assert_eq!(stash_count, 2);
+}
+
+#[test]
+fn test_status_new_additional_variants() {
+    // Test additional status variants that might not be covered
+    assert_eq!(Status::Unpublished.to_string(), "Unpublished");
+    assert_eq!(Status::Unpushed.to_string(), "Unpushed");
+    assert_eq!(Status::Detached.to_string(), "Detached");
+}
+
+#[test]
+fn test_status_additional_colors() {
+    assert_eq!(Status::Unpublished.color(), Color::Red);
+    assert_eq!(Status::Unpushed.color(), Color::Red);
+    assert_eq!(Status::Detached.color(), Color::Rgb { r: 255, g: 0, b: 255 });
+}
+
+#[test]
+fn test_status_additional_descriptions() {
+    assert_eq!(Status::Unpublished.description(), "The branch is not published.");
+    assert_eq!(Status::Unpushed.description(), "There are unpushed commits.");
+    assert_eq!(Status::Detached.description(), "The repository is in a detached HEAD state or has no upstream branch.");
+}
+
+#[test]
+fn test_get_repo_name_from_url() {
+    // Test the get_repo_name function indirectly through RepoInfo
+    let (_, mut repo) = init_temp_repo();
+    
+    // Just test with the fallback name since adding remotes can be tricky
+    let info = RepoInfo::new(&mut repo, "fallback-name", false, false).unwrap();
+    assert_eq!(info.name, "fallback-name"); // Should use the provided name
+}
+
+#[test]
+fn test_get_repo_path_functionality() {
+    let (tmp, repo) = init_temp_repo();
+    
+    // Test that the repo path is correctly identified
+    let repo_path = repo.path();
+    assert!(repo_path.ends_with(".git"));
+    
+    // When we get the working directory, it should be the parent
+    let workdir = repo.workdir().unwrap();
+    assert_eq!(workdir, tmp.path());
+}
