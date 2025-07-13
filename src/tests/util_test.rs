@@ -44,10 +44,11 @@ fn test_print_repositories_and_summary() {
         dir: Path::new(".").to_path_buf(),
         depth: 1,
         summary: true,
+        output: "table".to_owned(),
         ..Default::default()
     };
     let mut repos = vec![repo];
-    let _ = printer::repositories_table(&mut repos, &args);
+    printer::repositories_table(&mut repos, &args).unwrap();
     printer::summary(&repos, 0);
 }
 
@@ -85,8 +86,9 @@ fn test_print_repositories_with_remote() {
         dir: Path::new(".").to_path_buf(),
         depth: 1,
         remote: true,
+        output: "table".to_owned(),
         ..Default::default()
     };
     let mut repos = vec![repo];
-    let _ = printer::repositories_table(&mut repos, &args);
+    printer::repositories_table(&mut repos, &args).unwrap();
 }

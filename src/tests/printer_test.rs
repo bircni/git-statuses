@@ -13,7 +13,7 @@ fn test_repositories_table_empty() {
         depth: 1,
         ..Default::default()
     };
-    let _ = repositories_table(&mut repos, &args);
+    repositories_table(&mut repos, &args).unwrap();
     // Assert that no panic occurs and no output is generated
 }
 
@@ -36,9 +36,10 @@ fn test_repositories_table_with_data() {
         dir: ".".into(),
         depth: 1,
         remote: true,
+        output: "table".to_owned(),
         ..Default::default()
     };
-    let _ = repositories_table(&mut repos, &args);
+    repositories_table(&mut repos, &args).unwrap();
     // Assert that the table is printed correctly
 }
 
@@ -81,9 +82,10 @@ fn test_repositories_table_with_stashes_and_local_only() {
     let args = Args {
         dir: ".".into(),
         depth: 1,
+        output: "table".to_owned(),
         ..Default::default()
     };
-    let _ = repositories_table(&mut repos, &args);
+    repositories_table(&mut repos, &args).unwrap();
     // Assert that stash info and local-only status are displayed correctly
 }
 

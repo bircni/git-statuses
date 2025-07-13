@@ -192,22 +192,34 @@ fn format_json(repos: &[&RepoInfo]) -> Result<String> {
     Ok(format!("{json}\n"))
 }
 
+/// HTML template for the repository status report.
+const HTML_TEMPLATE_START: &str = r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Git Repository Status</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .clean { color: green; }
+        .dirty { color: orange; }
+        .unpushed { color: red; }
+        .unpublished { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Git Repository Status</h1>
+    <table>
+"#;
+
+const HTML_TEMPLATE_END: &str = r#"    </table>
+</body>
+</html>
+"#;
+
 /// Formats repository data as HTML table.
 fn format_html(repos: &[&RepoInfo], args: &Args) -> String {
-    let mut html = String::from("<!DOCTYPE html>\n<html>\n<head>\n");
-    html.push_str("    <title>Git Repository Status</title>\n");
-    html.push_str("    <style>\n");
-    html.push_str("        table { border-collapse: collapse; width: 100%; }\n");
-    html.push_str("        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n");
-    html.push_str("        th { background-color: #f2f2f2; font-weight: bold; }\n");
-    html.push_str("        .clean { color: green; }\n");
-    html.push_str("        .dirty { color: orange; }\n");
-    html.push_str("        .unpushed { color: red; }\n");
-    html.push_str("        .unpublished { color: blue; }\n");
-    html.push_str("    </style>\n");
-    html.push_str("</head>\n<body>\n");
-    html.push_str("    <h1>Git Repository Status</h1>\n");
-    html.push_str("    <table>\n");
+    let mut html = String::from(HTML_TEMPLATE_START);
     
     // Header
     html.push_str("        <tr>");
@@ -222,12 +234,7 @@ fn format_html(repos: &[&RepoInfo], args: &Args) -> String {
 
     // Rows
     for repo in repos {
-        let status_class = match repo.status {
-            Status::Clean => "clean",
-            Status::Dirty(_) => "dirty",
-            Status::Unpushed | Status::Unpublished => "unpushed",
-            _ => "",
-        };
+        let status_class = get_status_css_class(&repo.status);
         
         html.push_str("        <tr>");
         html.push_str(&format!("<td class=\"{status_class}\">{}</td>", html_escape(&repo.name)));
@@ -244,9 +251,18 @@ fn format_html(repos: &[&RepoInfo], args: &Args) -> String {
         html.push_str("</tr>\n");
     }
 
-    html.push_str("    </table>\n");
-    html.push_str("</body>\n</html>\n");
+    html.push_str(HTML_TEMPLATE_END);
     html
+}
+
+/// Maps repository status to CSS class name.
+fn get_status_css_class(status: &Status) -> &'static str {
+    match status {
+        Status::Clean => "clean",
+        Status::Dirty(_) => "dirty",
+        Status::Unpushed | Status::Unpublished => "unpushed",
+        _ => "",
+    }
 }
 
 /// Simple HTML escaping for table content.
