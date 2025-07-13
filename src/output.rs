@@ -51,6 +51,7 @@ impl OutputFormat {
     }
 
     /// Returns the default file extension for this format
+    #[allow(dead_code)]
     pub fn default_extension(&self) -> Option<&'static str> {
         match self {
             Self::Table => None,

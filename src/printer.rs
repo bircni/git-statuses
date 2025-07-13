@@ -30,7 +30,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) -> Result<()> {
     let output_format = args.output.parse::<OutputFormat>()?;
     
     // Validate file output options
-    if let Some(ref file_path) = args.output_file {
+    if let Some(ref _file_path) = args.output_file {
         if !output_format.supports_file_output() {
             anyhow::bail!("File output is only supported for json and html formats, not {}", output_format);
         }
@@ -48,7 +48,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) -> Result<()> {
     match output_format {
         OutputFormat::Table => {
             let output = format_table(&repos_vec, args);
-            if let Some(ref file_path) = args.output_file {
+            if let Some(ref _file_path) = args.output_file {
                 anyhow::bail!("Table format cannot be written to file. Use json or html format instead.");
             }
             print!("{output}");
