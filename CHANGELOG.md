@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.5.0](https://github.com/bircni/git-statuses/compare/0.4.1..0.5.0) - 2025-07-14
+
+### Features
+
+- add Unpushed Status - ([b0171ac](https://github.com/bircni/git-statuses/commit/b0171ac715b26b30a3069cc482d4d18bf551c8df)) - Nicolas
+- Implement stash detection and local-only branch indicators - ([8ae2655](https://github.com/bircni/git-statuses/commit/8ae2655edda39cad056747790af22907be79b56c)) - Nicolas
+
+### Tests
+
+- Add comprehensive test coverage for critical paths and edge cases - ([c9bc0ea](https://github.com/bircni/git-statuses/commit/c9bc0eae4ca42176041f84d0900aabc6a462e3a6)) - Nicolas
+
 ## [0.4.1](https://github.com/bircni/git-statuses/compare/0.4.0..0.4.1) - 2025-07-10
 
 ### Features
