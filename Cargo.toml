@@ -24,10 +24,16 @@ log = "0.4.27"
 simplelog = "0.12.2"
 strum = { version = "0.27.1", features = ["strum_macros"] }
 strum_macros = "0.27.1"
+crossterm = "0.29"
+ratatui = "0.29"
+castaway = "0.2.4"
 
 [dev-dependencies]
 insta = { version = "1.43", features = ["json"] }
 tempfile = "3.10"
+
+[package.metadata.cargo-shear]
+ignored = ["castaway"]
 
 [lints.rust]
 unsafe_code = "deny"

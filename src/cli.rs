@@ -27,7 +27,7 @@ pub struct Args {
     #[arg(short, long)]
     pub condensed: bool,
     /// Show a summary of the scan
-    #[arg(long)]
+    #[arg(short = 's', long)]
     pub summary: bool,
     /// Run a fetch before scanning to update the repository state
     /// Note: This may take a while for large repositories.
@@ -39,7 +39,7 @@ pub struct Args {
     /// Look in a specific subdir if it exists for each folder
     /// This can be useful, if you don't checkout in a folder directly
     /// but in a subfolder like `repo-name/checkout`
-    #[arg(short, long)]
+    #[arg(long)]
     pub subdir: Option<String>,
     /// Generate shell completions
     #[arg(long, value_name = "SHELL")]
@@ -48,6 +48,9 @@ pub struct Args {
     #[arg(short, long)]
     pub path: bool,
     /// Only show non clean repositories
-    #[arg(long)]
+    #[arg(short = 'n', long)]
     pub non_clean: bool,
+    /// Enable interactive mode to select and interact with repositories
+    #[arg(short, long)]
+    pub interactive: bool,
 }

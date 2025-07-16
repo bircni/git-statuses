@@ -24,7 +24,7 @@ Options:
   -c, --condensed
           Use a condensed layout
 
-      --summary
+  -s, --summary
           Show a summary of the scan
 
   -f, --fetch
@@ -33,7 +33,7 @@ Options:
   -l, --legend
           Print a legend explaining the color codes and statuses used in the output
 
-  -s, --subdir <SUBDIR>
+      --subdir <SUBDIR>
           Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
 
       --completions <SHELL>
@@ -44,8 +44,11 @@ Options:
   -p, --path
           Show the path to the repository
 
-      --non-clean
+  -n, --non-clean
           Only show non clean repositories
+
+  -i, --interactive
+          Enable interactive mode to select and interact with repositories
 
   -h, --help
           Print help

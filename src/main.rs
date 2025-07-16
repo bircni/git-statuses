@@ -3,10 +3,11 @@ use std::io;
 use anyhow::Result;
 use clap::{CommandFactory as _, Parser as _};
 
-use crate::cli::Args;
+use crate::{cli::Args, interactive::mode::InteractiveMode};
 
 mod cli;
 mod gitinfo;
+mod interactive;
 mod printer;
 #[cfg(test)]
 mod tests;
@@ -31,6 +32,13 @@ fn main() -> Result<()> {
     }
 
     let (mut repos, failed_repos) = util::find_repositories(&args);
+
+    // Enter interactive mode if requested
+    if args.interactive {
+        let mut interactive_mode = InteractiveMode::new(&repos, args)?;
+        interactive_mode.run()?;
+        return Ok(());
+    }
 
     printer::repositories_table(&mut repos, &args);
     printer::failed_summary(&failed_repos);
