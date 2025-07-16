@@ -88,24 +88,24 @@ impl InteractiveMode {
     fn interactive_loop(&mut self) -> Result<()> {
         loop {
             // Clone data needed for rendering to avoid borrowing issues
-            let current_view = self.current_view.clone();
-            let repos = self.repos.clone();
+            let current_view = &self.current_view;
             let args = &self.args;
+            let repos = &self.repos;
 
             let table_state = &mut self.table_state;
             let action_list_state = &mut self.action_list_state;
             self.terminal.draw(|f| match &current_view {
                 View::RepositoryList => {
-                    super::draw_repository_list_ui(f, &repos, table_state, args);
+                    super::draw_repository_list_ui(f, repos, table_state, args);
                 }
                 View::RepositoryActions(repo_index, _) => {
-                    super::draw_repository_actions_ui(f, &repos, *repo_index, action_list_state);
+                    super::draw_repository_actions_ui(f, repos, *repo_index, action_list_state);
                 }
                 View::CommandRunning(repo_index, command_name) => {
-                    super::draw_command_running_ui(f, &repos, *repo_index, command_name);
+                    super::draw_command_running_ui(f, repos, *repo_index, command_name);
                 }
                 View::CommandOutput(repo_index, command_name, output) => {
-                    super::draw_command_output_ui(f, &repos, *repo_index, command_name, output);
+                    super::draw_command_output_ui(f, repos, *repo_index, command_name, output);
                 }
             })?;
 
