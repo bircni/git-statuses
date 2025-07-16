@@ -39,7 +39,9 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      #- uses: Swatinem/rust-cache@v2
+      #  with:
+      #    prefix-key: "git-statuses"
       - name: Set up git user for testing purposes
         run: |
           git config --global user.email "ci@example.com"
