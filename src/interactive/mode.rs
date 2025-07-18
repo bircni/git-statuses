@@ -110,30 +110,31 @@ impl InteractiveMode {
             })?;
 
             if let Event::Key(key_event) = event::read()?
-                && key_event.kind == KeyEventKind::Press {
-                    match self.current_view.clone() {
-                        View::RepositoryList => {
-                            if self.handle_repository_list_input(key_event.code) {
-                                break;
-                            }
+                && key_event.kind == KeyEventKind::Press
+            {
+                match self.current_view.clone() {
+                    View::RepositoryList => {
+                        if self.handle_repository_list_input(key_event.code) {
+                            break;
                         }
-                        View::RepositoryActions(repo_index, _) => {
-                            if self.handle_repository_actions_input(key_event.code, repo_index)? {
-                                break;
-                            }
+                    }
+                    View::RepositoryActions(repo_index, _) => {
+                        if self.handle_repository_actions_input(key_event.code, repo_index)? {
+                            break;
                         }
-                        View::CommandRunning(_, _) => {
-                            if Self::handle_command_running_input(key_event.code) {
-                                break;
-                            }
+                    }
+                    View::CommandRunning(_, _) => {
+                        if Self::handle_command_running_input(key_event.code) {
+                            break;
                         }
-                        View::CommandOutput(_, _, _) => {
-                            if self.handle_command_output_input(key_event.code) {
-                                break;
-                            }
+                    }
+                    View::CommandOutput(_, _, _) => {
+                        if self.handle_command_output_input(key_event.code) {
+                            break;
                         }
                     }
                 }
+            }
         }
         Ok(())
     }
@@ -142,9 +143,10 @@ impl InteractiveMode {
         match key_code {
             KeyCode::Up => {
                 if let Some(selected) = self.table_state.selected()
-                    && selected > 0 {
-                        self.table_state.select(Some(selected - 1));
-                    }
+                    && selected > 0
+                {
+                    self.table_state.select(Some(selected - 1));
+                }
             }
             KeyCode::Down => {
                 if let Some(selected) = self.table_state.selected() {
@@ -203,10 +205,11 @@ impl InteractiveMode {
         match key_code {
             KeyCode::Up => {
                 if let Some(selected) = self.action_list_state.selected()
-                    && selected > 0 {
-                        self.action_list_state.select(Some(selected - 1));
-                        self.current_view = View::RepositoryActions(repo_index, selected - 1);
-                    }
+                    && selected > 0
+                {
+                    self.action_list_state.select(Some(selected - 1));
+                    self.current_view = View::RepositoryActions(repo_index, selected - 1);
+                }
             }
             KeyCode::Down => {
                 if let Some(selected) = self.action_list_state.selected() {
@@ -221,56 +224,54 @@ impl InteractiveMode {
             }
             KeyCode::Enter => {
                 if let Some(selected_action_index) = self.action_list_state.selected()
-                    && let Some(action) = actions.get(selected_action_index) {
-                        match action {
-                            GitAction::Status => {
-                                // Show loading state first
-                                self.current_view =
-                                    View::CommandRunning(repo_index, "Git Status".to_owned());
-                                self.force_redraw()?;
+                    && let Some(action) = actions.get(selected_action_index)
+                {
+                    match action {
+                        GitAction::Status => {
+                            // Show loading state first
+                            self.current_view =
+                                View::CommandRunning(repo_index, "Git Status".to_owned());
+                            self.force_redraw()?;
 
-                                let output = Self::execute_git_status(&self.repos[repo_index])?;
-                                self.current_view = View::CommandOutput(
-                                    repo_index,
-                                    "Git Status".to_owned(),
-                                    output,
-                                );
-                            }
-                            GitAction::Push => {
-                                // Show loading state first
-                                self.current_view =
-                                    View::CommandRunning(repo_index, "Git Push".to_owned());
-                                self.force_redraw()?;
+                            let output = Self::execute_git_status(&self.repos[repo_index])?;
+                            self.current_view =
+                                View::CommandOutput(repo_index, "Git Status".to_owned(), output);
+                        }
+                        GitAction::Push => {
+                            // Show loading state first
+                            self.current_view =
+                                View::CommandRunning(repo_index, "Git Push".to_owned());
+                            self.force_redraw()?;
 
-                                let output = Self::execute_git_push(&self.repos[repo_index])?;
-                                self.current_view =
-                                    View::CommandOutput(repo_index, "Git Push".to_owned(), output);
-                            }
-                            GitAction::Fetch => {
-                                // Show loading state first
-                                self.current_view =
-                                    View::CommandRunning(repo_index, "Git Fetch".to_owned());
-                                self.force_redraw()?;
+                            let output = Self::execute_git_push(&self.repos[repo_index])?;
+                            self.current_view =
+                                View::CommandOutput(repo_index, "Git Push".to_owned(), output);
+                        }
+                        GitAction::Fetch => {
+                            // Show loading state first
+                            self.current_view =
+                                View::CommandRunning(repo_index, "Git Fetch".to_owned());
+                            self.force_redraw()?;
 
-                                let output = Self::execute_git_fetch(&self.repos[repo_index])?;
-                                self.current_view =
-                                    View::CommandOutput(repo_index, "Git Fetch".to_owned(), output);
-                            }
-                            GitAction::Pull => {
-                                // Show loading state first
-                                self.current_view =
-                                    View::CommandRunning(repo_index, "Git Pull".to_owned());
-                                self.force_redraw()?;
+                            let output = Self::execute_git_fetch(&self.repos[repo_index])?;
+                            self.current_view =
+                                View::CommandOutput(repo_index, "Git Fetch".to_owned(), output);
+                        }
+                        GitAction::Pull => {
+                            // Show loading state first
+                            self.current_view =
+                                View::CommandRunning(repo_index, "Git Pull".to_owned());
+                            self.force_redraw()?;
 
-                                let output = Self::execute_git_pull(&self.repos[repo_index])?;
-                                self.current_view =
-                                    View::CommandOutput(repo_index, "Git Pull".to_owned(), output);
-                            }
-                            GitAction::Back => {
-                                self.current_view = View::RepositoryList;
-                            }
+                            let output = Self::execute_git_pull(&self.repos[repo_index])?;
+                            self.current_view =
+                                View::CommandOutput(repo_index, "Git Pull".to_owned(), output);
+                        }
+                        GitAction::Back => {
+                            self.current_view = View::RepositoryList;
                         }
                     }
+                }
             }
             KeyCode::Esc | KeyCode::Backspace => {
                 self.current_view = View::RepositoryList;
