@@ -49,14 +49,14 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let name_cell = Cell::new(&repo.name).fg(repo.status.color());
+        let name_cell = Cell::new(&repo.name).fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
             Cell::new(&repo.branch),
             Cell::new(repo.format_local_status()),
             Cell::new(repo.commits),
-            Cell::new(repo.format_status_with_stash()).fg(repo.status.color()),
+            Cell::new(repo.format_status_with_stash()).fg(repo.status.comfy_color()),
         ];
         if args.remote {
             row.push(Cell::new(repo.remote_url.as_deref().unwrap_or("-")));

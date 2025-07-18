@@ -178,15 +178,15 @@ fn test_status_display_variants() {
 
 #[test]
 fn test_status_colors() {
-    assert_eq!(Status::Clean.color(), Color::Reset);
-    assert_eq!(Status::Dirty(1).color(), Color::Red);
-    assert_eq!(Status::Merge.color(), Color::Blue);
-    assert_eq!(Status::Revert.color(), Color::Magenta);
-    assert_eq!(Status::Rebase.color(), Color::Cyan);
-    assert_eq!(Status::Bisect.color(), Color::Yellow);
-    assert_eq!(Status::CherryPick.color(), Color::DarkYellow);
+    assert_eq!(Status::Clean.comfy_color(), Color::Reset);
+    assert_eq!(Status::Dirty(1).comfy_color(), Color::Red);
+    assert_eq!(Status::Merge.comfy_color(), Color::Blue);
+    assert_eq!(Status::Revert.comfy_color(), Color::Magenta);
+    assert_eq!(Status::Rebase.comfy_color(), Color::Cyan);
+    assert_eq!(Status::Bisect.comfy_color(), Color::Yellow);
+    assert_eq!(Status::CherryPick.comfy_color(), Color::DarkYellow);
     assert_eq!(
-        Status::Unknown.color(),
+        Status::Unknown.comfy_color(),
         Color::Rgb {
             r: 255,
             g: 165,
