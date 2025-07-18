@@ -109,8 +109,8 @@ impl InteractiveMode {
                 }
             })?;
 
-            if let Event::Key(key_event) = event::read()? {
-                if key_event.kind == KeyEventKind::Press {
+            if let Event::Key(key_event) = event::read()?
+                && key_event.kind == KeyEventKind::Press {
                     match self.current_view.clone() {
                         View::RepositoryList => {
                             if self.handle_repository_list_input(key_event.code) {
@@ -134,7 +134,6 @@ impl InteractiveMode {
                         }
                     }
                 }
-            }
         }
         Ok(())
     }
@@ -142,11 +141,10 @@ impl InteractiveMode {
     fn handle_repository_list_input(&mut self, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Up => {
-                if let Some(selected) = self.table_state.selected() {
-                    if selected > 0 {
+                if let Some(selected) = self.table_state.selected()
+                    && selected > 0 {
                         self.table_state.select(Some(selected - 1));
                     }
-                }
             }
             KeyCode::Down => {
                 if let Some(selected) = self.table_state.selected() {
@@ -204,12 +202,11 @@ impl InteractiveMode {
 
         match key_code {
             KeyCode::Up => {
-                if let Some(selected) = self.action_list_state.selected() {
-                    if selected > 0 {
+                if let Some(selected) = self.action_list_state.selected()
+                    && selected > 0 {
                         self.action_list_state.select(Some(selected - 1));
                         self.current_view = View::RepositoryActions(repo_index, selected - 1);
                     }
-                }
             }
             KeyCode::Down => {
                 if let Some(selected) = self.action_list_state.selected() {
@@ -223,8 +220,8 @@ impl InteractiveMode {
                 }
             }
             KeyCode::Enter => {
-                if let Some(selected_action_index) = self.action_list_state.selected() {
-                    if let Some(action) = actions.get(selected_action_index) {
+                if let Some(selected_action_index) = self.action_list_state.selected()
+                    && let Some(action) = actions.get(selected_action_index) {
                         match action {
                             GitAction::Status => {
                                 // Show loading state first
@@ -274,7 +271,6 @@ impl InteractiveMode {
                             }
                         }
                     }
-                }
             }
             KeyCode::Esc | KeyCode::Backspace => {
                 self.current_view = View::RepositoryList;
@@ -390,13 +386,13 @@ impl InteractiveMode {
             .output()?;
 
         let mut result = format!("📋 Git Status for {}\n", repo.name);
-        write!(result, "📍 Path: {}\n\n", repo.path.display()).unwrap();
+        write!(result, "📍 Path: {}\n\n", repo.path.display())?;
 
         if output.status.success() {
-            result.push_str(&String::from_utf8_lossy(&output.stdout));
+            write!(result, "{}", String::from_utf8_lossy(&output.stdout))?;
         } else {
-            result.push_str("❌ Error running git status:\n");
-            result.push_str(&String::from_utf8_lossy(&output.stderr));
+            writeln!(result, "❌ Error running git status:")?;
+            write!(result, "{}", String::from_utf8_lossy(&output.stderr))?;
         }
 
         Ok(result)
@@ -409,18 +405,18 @@ impl InteractiveMode {
             .output()?;
 
         let mut result = format!("📤 Git Push for {}\n", repo.name);
-        write!(result, "📍 Path: {}\n\n", repo.path.display()).unwrap();
+        write!(result, "📍 Path: {}\n\n", repo.path.display())?;
 
         if output.status.success() {
-            result.push_str("✅ Push completed successfully!\n\n");
-            result.push_str(&String::from_utf8_lossy(&output.stdout));
+            writeln!(result, "✅ Push completed successfully!\n\n")?;
+            write!(result, "{}", String::from_utf8_lossy(&output.stdout))?;
             if !output.stderr.is_empty() {
-                result.push_str("\n📄 Additional info:\n");
-                result.push_str(&String::from_utf8_lossy(&output.stderr));
+                writeln!(result, "\n📄 Additional info:\n")?;
+                write!(result, "{}", String::from_utf8_lossy(&output.stderr))?;
             }
         } else {
-            result.push_str("❌ Error during git push:\n");
-            result.push_str(&String::from_utf8_lossy(&output.stderr));
+            writeln!(result, "❌ Error during git push:")?;
+            write!(result, "{}", String::from_utf8_lossy(&output.stderr))?;
         }
 
         Ok(result)
@@ -433,7 +429,7 @@ impl InteractiveMode {
             .output()?;
 
         let mut result = format!("📥 Git Fetch for {}\n", repo.name);
-        write!(result, "📍 Path: {}\n\n", repo.path.display()).unwrap();
+        write!(result, "📍 Path: {}\n\n", repo.path.display())?;
 
         if output.status.success() {
             result.push_str("✅ Fetch completed successfully!\n\n");
@@ -462,7 +458,7 @@ impl InteractiveMode {
             .output()?;
 
         let mut result = format!("⬇️ Git Pull for {}\n", repo.name);
-        write!(result, "📍 Path: {}\n\n", repo.path.display()).unwrap();
+        write!(result, "📍 Path: {}\n\n", repo.path.display())?;
 
         if output.status.success() {
             result.push_str("✅ Pull completed successfully!\n\n");
