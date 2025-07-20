@@ -388,10 +388,10 @@ fn test_status_new_additional_variants() {
 
 #[test]
 fn test_status_additional_colors() {
-    assert_eq!(Status::Unpublished.color(), Color::Red);
-    assert_eq!(Status::Unpushed.color(), Color::Red);
+    assert_eq!(Status::Unpublished.comfy_color(), Color::Red);
+    assert_eq!(Status::Unpushed.comfy_color(), Color::Red);
     assert_eq!(
-        Status::Detached.color(),
+        Status::Detached.comfy_color(),
         Color::Rgb {
             r: 255,
             g: 0,

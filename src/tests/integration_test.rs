@@ -161,7 +161,7 @@ fn test_integration_subdir_functionality() {
     let args = Args {
         dir: temp_dir.path().to_path_buf(),
         depth: 3,
-        subdir: Some("checkout".to_string()),
+        subdir: Some("checkout".to_owned()),
         ..Default::default()
     };
 
@@ -258,6 +258,6 @@ fn test_integration_repository_with_remote() {
     assert_eq!(failed.len(), 0);
     assert_eq!(
         repos[0].remote_url,
-        Some("https://github.com/example/test-repo.git".to_string())
+        Some("https://github.com/example/test-repo.git".to_owned())
     );
 }

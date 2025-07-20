@@ -8,11 +8,11 @@ use tempfile::TempDir;
 #[test]
 fn test_help_flag() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+        .args(["run", "--", "--help"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -24,11 +24,11 @@ fn test_help_flag() {
 #[test]
 fn test_version_flag() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--version"])
+        .args(["run", "--", "--version"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -38,11 +38,11 @@ fn test_version_flag() {
 #[test]
 fn test_legend_flag() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--legend"])
+        .args(["run", "--", "--legend"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -55,11 +55,11 @@ fn test_legend_flag() {
 #[test]
 fn test_legend_condensed() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--legend", "--condensed"])
+        .args(["run", "--", "--legend", "--condensed"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -71,11 +71,11 @@ fn test_legend_condensed() {
 #[test]
 fn test_completions_bash() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--completions", "bash"])
+        .args(["run", "--", "--completions", "bash"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -88,11 +88,11 @@ fn test_empty_directory() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should complete without error even with no repos
@@ -101,11 +101,11 @@ fn test_empty_directory() {
 #[test]
 fn test_nonexistent_directory() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "/path/that/does/not/exist"])
+        .args(["run", "--", "/path/that/does/not/exist"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     // Should handle nonexistent directory gracefully
     let _stderr = String::from_utf8_lossy(&output.stderr);
@@ -123,20 +123,20 @@ fn test_with_actual_git_repo() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(&repo_path)
         .output()
-        .expect("Failed to init git repo");
+        .unwrap();
 
     // Configure git
     Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
 
     Command::new("git")
-        .args(&["config", "user.email", "test@example.com"])
+        .args(["config", "user.email", "test@example.com"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
@@ -144,24 +144,24 @@ fn test_with_actual_git_repo() {
     // Create and commit a file
     fs::write(repo_path.join("README.md"), "# Test Repo").unwrap();
     Command::new("git")
-        .args(&["add", "README.md"])
+        .args(["add", "README.md"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
 
     Command::new("git")
-        .args(&["commit", "-m", "Initial commit"])
+        .args(["commit", "-m", "Initial commit"])
         .current_dir(&repo_path)
         .output()
         .unwrap();
 
     // Run git-statuses on the directory
     let output = Command::new("cargo")
-        .args(&["run", "--", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -174,11 +174,11 @@ fn test_with_summary_flag() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--summary", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", "--summary", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -196,7 +196,7 @@ fn test_depth_flag_integration() {
     fs::create_dir_all(&level2).unwrap();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--depth",
@@ -206,7 +206,7 @@ fn test_depth_flag_integration() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should scan deeper directories
@@ -217,11 +217,11 @@ fn test_remote_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--remote", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", "--remote", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should include remote column in output (even if empty)
@@ -232,7 +232,7 @@ fn test_condensed_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--condensed",
@@ -241,7 +241,7 @@ fn test_condensed_flag_integration() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should use condensed table format
@@ -252,7 +252,7 @@ fn test_multiple_flags_combination() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--remote",
@@ -265,7 +265,7 @@ fn test_multiple_flags_combination() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -278,11 +278,11 @@ fn test_path_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--path", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", "--path", temp_dir.path().to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should include path column in output
@@ -293,7 +293,7 @@ fn test_non_clean_flag_integration() {
     let temp_dir = TempDir::new().unwrap();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--non-clean",
@@ -302,7 +302,7 @@ fn test_non_clean_flag_integration() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(output.status.success());
     // Should only show non-clean repositories

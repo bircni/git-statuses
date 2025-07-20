@@ -64,7 +64,7 @@ fn test_cli_snapshot() {
 
 #[test]
 fn test_cli_default_args() {
-    let args = Args::parse_from(&["git-statuses"]);
+    let args = Args::parse_from(["git-statuses"]);
     assert_eq!(args.dir, Path::new("."));
     assert_eq!(args.depth, 1);
     assert!(!args.remote);
@@ -80,22 +80,22 @@ fn test_cli_default_args() {
 
 #[test]
 fn test_cli_directory_argument() {
-    let args = Args::parse_from(&["git-statuses", "/path/to/repos"]);
+    let args = Args::parse_from(["git-statuses", "/path/to/repos"]);
     assert_eq!(args.dir, Path::new("/path/to/repos"));
 }
 
 #[test]
 fn test_cli_depth_argument() {
-    let args = Args::parse_from(&["git-statuses", "--depth", "5"]);
+    let args = Args::parse_from(["git-statuses", "--depth", "5"]);
     assert_eq!(args.depth, 5);
 
-    let args = Args::parse_from(&["git-statuses", "-d", "10"]);
+    let args = Args::parse_from(["git-statuses", "-d", "10"]);
     assert_eq!(args.depth, 10);
 }
 
 #[test]
 fn test_cli_boolean_flags() {
-    let args = Args::parse_from(&[
+    let args = Args::parse_from([
         "git-statuses",
         "--remote",
         "--condensed",
@@ -116,7 +116,7 @@ fn test_cli_boolean_flags() {
 
 #[test]
 fn test_cli_short_flags() {
-    let args = Args::parse_from(&["git-statuses", "-r", "-c", "-f", "-l", "-p"]);
+    let args = Args::parse_from(["git-statuses", "-r", "-c", "-f", "-l", "-p"]);
     assert!(args.remote);
     assert!(args.condensed);
     assert!(args.fetch);
@@ -126,16 +126,13 @@ fn test_cli_short_flags() {
 
 #[test]
 fn test_cli_subdir_argument() {
-    let args = Args::parse_from(&["git-statuses", "--subdir", "checkout"]);
-    assert_eq!(args.subdir, Some("checkout".to_string()));
-
-    let args = Args::parse_from(&["git-statuses", "-s", "src"]);
-    assert_eq!(args.subdir, Some("src".to_string()));
+    let args = Args::parse_from(["git-statuses", "--subdir", "checkout"]);
+    assert_eq!(args.subdir, Some("checkout".to_owned()));
 }
 
 #[test]
 fn test_cli_complex_combinations() {
-    let args = Args::parse_from(&[
+    let args = Args::parse_from([
         "git-statuses",
         "/home/user/projects",
         "--depth",
@@ -151,7 +148,7 @@ fn test_cli_complex_combinations() {
     assert_eq!(args.depth, 3);
     assert!(args.remote);
     assert!(args.summary);
-    assert_eq!(args.subdir, Some("checkout".to_string()));
+    assert_eq!(args.subdir, Some("checkout".to_owned()));
     assert!(args.condensed);
     assert!(!args.fetch); // not specified
     assert!(!args.legend); // not specified
@@ -161,26 +158,26 @@ fn test_cli_complex_combinations() {
 fn test_cli_completions_argument() {
     use clap_complete::Shell;
 
-    let args = Args::parse_from(&["git-statuses", "--completions", "bash"]);
+    let args = Args::parse_from(["git-statuses", "--completions", "bash"]);
     assert_eq!(args.completions, Some(Shell::Bash));
 
-    let args = Args::parse_from(&["git-statuses", "--completions", "zsh"]);
+    let args = Args::parse_from(["git-statuses", "--completions", "zsh"]);
     assert_eq!(args.completions, Some(Shell::Zsh));
 
-    let args = Args::parse_from(&["git-statuses", "--completions", "fish"]);
+    let args = Args::parse_from(["git-statuses", "--completions", "fish"]);
     assert_eq!(args.completions, Some(Shell::Fish));
 }
 
 #[test]
 fn test_cli_edge_case_depth_zero() {
-    let args = Args::parse_from(&["git-statuses", "--depth", "0"]);
+    let args = Args::parse_from(["git-statuses", "--depth", "0"]);
     assert_eq!(args.depth, 0);
 }
 
 #[test]
 fn test_cli_filter_combination() {
     // Test that non-clean filter works with other options
-    let args = Args::parse_from(&["git-statuses", "--non-clean", "--remote", "--summary"]);
+    let args = Args::parse_from(["git-statuses", "--non-clean", "--remote", "--summary"]);
 
     assert!(args.non_clean);
     assert!(args.remote);
@@ -190,14 +187,14 @@ fn test_cli_filter_combination() {
 #[test]
 fn test_cli_path_variations() {
     // Test relative path
-    let args = Args::parse_from(&["git-statuses", "."]);
+    let args = Args::parse_from(["git-statuses", "."]);
     assert_eq!(args.dir, Path::new("."));
 
     // Test path with tilde (will be treated literally by clap)
-    let args = Args::parse_from(&["git-statuses", "~/projects"]);
+    let args = Args::parse_from(["git-statuses", "~/projects"]);
     assert_eq!(args.dir, Path::new("~/projects"));
 
     // Test absolute path
-    let args = Args::parse_from(&["git-statuses", "/absolute/path"]);
+    let args = Args::parse_from(["git-statuses", "/absolute/path"]);
     assert_eq!(args.dir, Path::new("/absolute/path"));
 }

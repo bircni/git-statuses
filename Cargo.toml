@@ -22,8 +22,8 @@ rayon = "1.10.0"
 parking_lot = "0.12.4"
 log = "0.4.27"
 simplelog = "0.12.2"
-strum = { version = "0.27.1", features = ["strum_macros"] }
-strum_macros = "0.27.1"
+strum = { version = "0.27", features = ["strum_macros"] }
+strum_macros = "0.27"
 crossterm = "0.29"
 ratatui = "0.29"
 castaway = "0.2.4"

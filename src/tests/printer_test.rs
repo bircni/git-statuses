@@ -358,9 +358,9 @@ fn test_failed_summary_empty() {
 #[test]
 fn test_failed_summary_multiple() {
     let failed_repos = vec![
-        "broken-repo-1".to_string(),
-        "corrupted-repo-2".to_string(),
-        "invalid-git-dir".to_string(),
+        "broken-repo-1".to_owned(),
+        "corrupted-repo-2".to_owned(),
+        "invalid-git-dir".to_owned(),
     ];
     failed_summary(&failed_repos);
     // Should print warning about failed repos

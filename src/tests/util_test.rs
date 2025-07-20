@@ -105,7 +105,7 @@ fn test_git_path_ext_is_git_directory() {
     // Test git directory
     let git_dir = temp.path().join("git-repo");
     fs::create_dir_all(&git_dir).unwrap();
-    fs::create_dir_all(&git_dir.join(".git")).unwrap();
+    fs::create_dir_all(git_dir.join(".git")).unwrap();
     assert!(git_dir.is_git_directory());
 
     // Test file (not directory)
@@ -212,7 +212,7 @@ fn test_find_repositories_with_failed_repos() {
     // Create a fake .git directory that's actually a file
     let fake_git_dir = temp.path().join("fake-repo");
     fs::create_dir_all(&fake_git_dir).unwrap();
-    fs::write(&fake_git_dir.join(".git"), "this is not a git directory").unwrap();
+    fs::write(fake_git_dir.join(".git"), "this is not a git directory").unwrap();
 
     let args = Args {
         dir: temp.path().to_path_buf(),
@@ -238,7 +238,7 @@ fn test_find_repositories_with_subdir_not_found() {
     let args = Args {
         dir: temp.path().to_path_buf(),
         depth: 2,
-        subdir: Some("nonexistent".to_string()),
+        subdir: Some("nonexistent".to_owned()),
         ..Default::default()
     };
 
