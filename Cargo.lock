@@ -434,7 +434,6 @@ name = "git-statuses"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "castaway",
  "clap",
  "clap_complete",
  "comfy-table",
