@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.5.1](https://github.com/bircni/git-statuses/compare/0.5.0..0.5.1) - 2025-07-21
+
+### Bug Fixes
+
+- remove unused crates - ([7a0831d](https://github.com/bircni/git-statuses/commit/7a0831d1f90131a68cbc23264b4cff33b1e804b4)) - Nicolas
+
+### Documentation
+
+- update README documentation - ([ebfa500](https://github.com/bircni/git-statuses/commit/ebfa5008495b82cfa28805334f18895dba1bf780)) - Nicolas
+
+### Features
+
+- **(interactive)** add an interactive mode for repos ([#30](https://github.com/bircni/git-statuses/issues/30)) - ([4713543](https://github.com/bircni/git-statuses/commit/47135430888ba26f54cf11c4056cb642b9830346)) - Nicolas
+
+### Tests
+
+- fix errors - ([b5e97b5](https://github.com/bircni/git-statuses/commit/b5e97b5a50b5c0a038c37b95e50eb743a801e23f)) - Nicolas
+
 ## [0.5.0](https://github.com/bircni/git-statuses/compare/0.4.1..0.5.0) - 2025-07-14
 
 ### Features
