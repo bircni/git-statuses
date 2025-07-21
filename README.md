@@ -13,7 +13,7 @@ A command-line tool to display the status of multiple Git repositories in a clea
 - Fast and user-friendly CLI
 - Useful for developers managing many repositories
 
-![Example](https://github.com/user-attachments/assets/9a9152c2-1416-4b11-bf7b-debe8f1a2618)
+![Example](https://github.com/user-attachments/assets/ba90b3ad-affa-44e5-8fef-7204ba49fd68)
 
 ## Installation
 
@@ -50,15 +50,19 @@ Arguments:
   [DIR]  Directory to scan [default: .]
 
 Options:
-  -d, --depth <DEPTH>    Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned [default: 1]
-  -r, --remote           Show remote URL
-  -c, --condensed        Use a condensed layout
-      --summary          Show a summary of the scan
-  -f, --fetch            Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
-  -l, --legend           Print a legend explaining the color codes and statuses used in the output
-  -s, --subdir <SUBDIR>  Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
-  -h, --help             Print help
-  -V, --version          Print version
+  -d, --depth <DEPTH>        Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned. If set to -1, all subdirectories are scanned. (this may take a while) [default: 1]
+  -r, --remote               Show remote URL
+  -c, --condensed            Use a condensed layout
+  -s, --summary              Show a summary of the scan
+  -f, --fetch                Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
+  -l, --legend               Print a legend explaining the color codes and statuses used in the output
+      --subdir <SUBDIR>      Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
+      --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
+  -p, --path                 Show the path to the repository
+  -n, --non-clean            Only show non clean repositories
+  -i, --interactive          Enable interactive mode to select and interact with repositories
+  -h, --help                 Print help
+  -V, --version              Print version
 ```
 
 ## Output
