@@ -5,9 +5,9 @@ use git2::Repository;
 
 use crate::gitinfo::{self, repoinfo::RepoInfo, status::Status};
 
-fn init_temp_repo() -> (tempfile::TempDir, git2::Repository) {
+fn init_temp_repo() -> (tempfile::TempDir, Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
-    let repo = git2::Repository::init(tmp_dir.path()).unwrap();
+    let repo = Repository::init(tmp_dir.path()).unwrap();
     let mut config = repo.config().unwrap();
     config.set_str("user.name", "Test User").unwrap();
     config.set_str("user.email", "test@example.com").unwrap();
@@ -73,7 +73,7 @@ fn test_get_repo_status_invalid_repo() {
 fn test_get_branch_name_detached_head() {
     let (tmp, repo) = init_temp_repo();
     let path = tmp.path().join("foo.txt");
-    std::fs::write(&path, "bar").unwrap();
+    fs::write(&path, "bar").unwrap();
     let mut index = repo.index().unwrap();
     index.add_path(Path::new("foo.txt")).unwrap();
     index.write().unwrap();
@@ -93,7 +93,7 @@ fn test_get_branch_name_detached_head() {
 fn test_get_total_commits_multiple() {
     let (tmp, repo) = init_temp_repo();
     let path = tmp.path().join("foo.txt");
-    std::fs::write(&path, "bar").unwrap();
+    fs::write(&path, "bar").unwrap();
     let mut index = repo.index().unwrap();
     index.add_path(Path::new("foo.txt")).unwrap();
     index.write().unwrap();
@@ -103,7 +103,7 @@ fn test_get_total_commits_multiple() {
     let first_commit = repo
         .commit(Some("HEAD"), &sig, &sig, "msg", &tree, &[])
         .unwrap();
-    std::fs::write(&path, "baz").unwrap();
+    fs::write(&path, "baz").unwrap();
     let mut index = repo.index().unwrap();
     index.add_path(Path::new("foo.txt")).unwrap();
     index.write().unwrap();
@@ -159,8 +159,8 @@ fn test_get_total_commits_error_cases() {
     let (tmp, repo) = init_temp_repo();
     // Remove HEAD to trigger an error
     let head_path = tmp.path().join(".git/HEAD");
-    std::fs::remove_file(&head_path).unwrap();
-    let commits = crate::gitinfo::get_total_commits(&repo).unwrap();
+    fs::remove_file(&head_path).unwrap();
+    let commits = gitinfo::get_total_commits(&repo).unwrap();
     assert_eq!(commits, 0);
 }
 
