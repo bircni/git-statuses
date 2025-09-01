@@ -1,6 +1,7 @@
 # git-statuses
 
 [![Crates.io](https://img.shields.io/crates/v/git-statuses.svg)](https://crates.io/crates/git-statuses)
+[![Github All Releases](https://img.shields.io/github/downloads/bircni/git-statuses/total.svg)](https://github.com/bircni/git-statuses/releases)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/git-statuses/blob/main/LICENSE)
 [![CI](https://github.com/bircni/git-statuses/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bircni/git-statuses/actions/workflows/ci.yml)
 
