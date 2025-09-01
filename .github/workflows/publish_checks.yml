@@ -1,0 +1,22 @@
+name: Publish Checks
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-check:
+    name: Publish Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fetch
+      - name: cargo publish
+        run: cargo publish --dry-run
