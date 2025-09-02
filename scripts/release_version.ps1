@@ -36,8 +36,16 @@ Write-Host "Version updated successfully in Cargo.toml."
 Write-Host "Generating changelog..."
 git cliff --output CHANGELOG.md -t $version
 Write-Host "Changelog generated successfully."
+# Update Cargo.lock
+Write-Host "Building..."
+cargo build --release --quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed. Please fix the errors and try again."
+    exit 1
+}
+Write-Host "Build succeeded."
 # Ask for confirmation before committing
-Write-Host "Please review the changes in Cargo.toml and CHANGELOG.md."
+Write-Host "Please review the changes in Cargo.toml, Cargo.lock and CHANGELOG.md."
 $confirmation = Read-Host "Do you want to commit the changes? (y/n)"
 if ($confirmation -ne 'y') {
     Write-Host "Changes not committed. Exiting."

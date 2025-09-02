@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.6.1](https://github.com/bircni/git-statuses/compare/0.6.0..0.6.1) - 2025-09-02
+
+### Bug Fixes
+
+- improve branch name retrieval logic for detached HEAD case to display N/A instead - ([a513503](https://github.com/bircni/git-statuses/commit/a513503ab7a5ae551db377007d692a7d3c5718bc)) - Nicolas
+
+### Continuous Integration
+
+- update cargo-shear action and add cargo-deny action - ([70b6556](https://github.com/bircni/git-statuses/commit/70b65566e6c33de3aeefd554cf9b3b1c3012e664)) - Nicolas
+- create separate publish_checks workflow - ([dcc75a3](https://github.com/bircni/git-statuses/commit/dcc75a39fce70c7edfe690331f901d0901b02bd7)) - Nicolas
+
+### Documentation
+
+- add download badge - ([b511ab4](https://github.com/bircni/git-statuses/commit/b511ab4a8e2d1fb3487a91813ec8a7524a1c126c)) - Nicolas
+
 ## [0.6.0](https://github.com/bircni/git-statuses/compare/0.5.1..0.6.0) - 2025-08-31
 
 ### Bug Fixes
