@@ -50,16 +50,21 @@ fn get_repo_name(repo: &Repository) -> Option<String> {
 }
 
 /// Returns the current branch name or a fallback if not available.
-/// If the HEAD is detached or not pointing to a branch,
-/// it returns the symbolic target of HEAD or "(no branch)" if no commits exist.
+/// If the HEAD is detached, it returns "N/A".
+/// If not pointing to a branch, it returns the symbolic target of HEAD or "(no branch)" if no commits exist.
 /// # Arguments
 /// * `repo` - The Git repository to check for the branch name.
 /// # Returns
 /// A `String` containing the branch name or a fallback message.
 pub fn get_branch_name(repo: &Repository) -> String {
     if let Ok(head) = repo.head() {
-        if let Some(name) = head.shorthand() {
-            return name.to_owned();
+        if head.is_branch() {
+            if let Some(name) = head.shorthand() {
+                return name.to_owned();
+            }
+        } else {
+            // Detached HEAD
+            return "N/A".to_owned();
         }
         if let Some(target) = head.symbolic_target()
             && let Some(branch) = target.rsplit('/').next()
@@ -103,7 +108,6 @@ pub fn get_ahead_behind_and_local_status(repo: &Repository) -> (usize, usize, bo
 }
 
 /// Gets the total number of commits in the current branch.
-/// If the HEAD is detached or not pointing to a branch,
 /// # Arguments
 /// * `repo` - The Git repository to check for total commits.
 /// # Returns
