@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use git2::Repository;
 
@@ -29,6 +29,8 @@ pub struct RepoInfo {
     pub stash_count: usize,
     /// True if the current branch has no upstream (local-only).
     pub is_local_only: bool,
+    /// relative path from the starting directory
+    pub repo_path: String,
 }
 
 impl RepoInfo {
@@ -52,6 +54,7 @@ impl RepoInfo {
         name: &str,
         show_remote: bool,
         fetch: bool,
+        dir: &Path,
     ) -> anyhow::Result<Self> {
         if fetch {
             // Attempt to fetch from origin, ignoring errors
@@ -70,6 +73,15 @@ impl RepoInfo {
         };
         let path = gitinfo::get_repo_path(repo);
         let stash_count = gitinfo::get_stash_count(repo);
+        let repo_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+        let root_path = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+        let repo_path_relative = repo_path.strip_prefix(&root_path).unwrap_or(&repo_path);
+        // if relative path is empty, use repo_path
+        let repo_path_relative = if repo_path_relative.as_os_str().is_empty() {
+            &repo_path
+        } else {
+            repo_path_relative
+        };
 
         Ok(Self {
             name,
@@ -83,6 +95,7 @@ impl RepoInfo {
             path,
             stash_count,
             is_local_only,
+            repo_path: repo_path_relative.display().to_string(),
         })
     }
 

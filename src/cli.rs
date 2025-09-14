@@ -113,9 +113,13 @@ impl Args {
             };
             match git2::Repository::open(path_buf.as_path()) {
                 Ok(mut git_repo) => {
-                    if let Ok(repo) =
-                        RepoInfo::new(&mut git_repo, &repo_name, self.remote, self.fetch)
-                    {
+                    if let Ok(repo) = RepoInfo::new(
+                        &mut git_repo,
+                        &repo_name,
+                        self.remote,
+                        self.fetch,
+                        &self.dir,
+                    ) {
                         repos.write().push(repo);
                     } else {
                         failed_repos.write().push(repo_name);

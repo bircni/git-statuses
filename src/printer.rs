@@ -16,7 +16,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         log::info!("No repositories found.");
         return;
     }
-    repos.sort_by_key(|r| r.name.to_ascii_lowercase());
+    repos.sort_by_key(|r| r.repo_path.to_ascii_lowercase());
     let repos_iter: Box<dyn Iterator<Item = &RepoInfo>> = if args.non_clean {
         Box::new(repos.iter().filter(|r| r.status != Status::Clean))
     } else {
@@ -49,7 +49,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let name_cell = Cell::new(&repo.name).fg(repo.status.comfy_color());
+        let name_cell = Cell::new(&repo.repo_path).fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
