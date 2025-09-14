@@ -49,7 +49,10 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let name_cell = Cell::new(&repo.name).fg(repo.status.comfy_color());
+        let repo_path = repo.path.canonicalize().unwrap_or(repo.path.clone());
+        let root_path = args.dir.canonicalize().unwrap_or(args.dir.clone());
+        let repo_path_relative = repo_path.strip_prefix(&root_path).unwrap_or(&repo_path);
+        let name_cell = Cell::new(repo_path_relative.display().to_string()).fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
