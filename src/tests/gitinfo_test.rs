@@ -1,4 +1,7 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use comfy_table::Color;
 use git2::Repository;
@@ -120,10 +123,22 @@ fn test_get_total_commits_multiple() {
 fn test_repo_info_new_with_and_without_remote() {
     let (_, mut repo) = init_temp_repo();
     // Without remote
-    let info = RepoInfo::new(&mut repo, "tmp", false, false);
+    let info = RepoInfo::new(
+        &mut repo,
+        "tmp",
+        false,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    );
     info.unwrap();
     // With remote (origin does not exist)
-    let info_remote = RepoInfo::new(&mut repo, "tmp", true, false);
+    let info_remote = RepoInfo::new(
+        &mut repo,
+        "tmp",
+        true,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    );
     info_remote.unwrap();
 }
 
@@ -240,7 +255,14 @@ fn test_get_ahead_behind_and_local_status_no_upstream() {
 #[test]
 fn test_repo_info_includes_stash_and_local_status() {
     let (_tmp, mut repo) = init_temp_repo();
-    let info = RepoInfo::new(&mut repo, "test", false, false).unwrap();
+    let info = RepoInfo::new(
+        &mut repo,
+        "test",
+        false,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    )
+    .unwrap();
     assert_eq!(info.stash_count, 0);
     assert!(info.is_local_only);
 }
@@ -422,7 +444,14 @@ fn test_get_repo_name_from_url() {
     let (_, mut repo) = init_temp_repo();
 
     // Just test with the fallback name since adding remotes can be tricky
-    let info = RepoInfo::new(&mut repo, "fallback-name", false, false).unwrap();
+    let info = RepoInfo::new(
+        &mut repo,
+        "fallback-name",
+        false,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    )
+    .unwrap();
     assert_eq!(info.name, "fallback-name"); // Should use the provided name
 }
 
