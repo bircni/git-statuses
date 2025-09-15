@@ -34,7 +34,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
         .set_content_arrangement(ContentArrangement::Dynamic);
 
     let mut header = vec![
-        Cell::new("Directory").add_attribute(Attribute::Bold),
+        Cell::new("Repository").add_attribute(Attribute::Bold),
         Cell::new("Branch").add_attribute(Attribute::Bold),
         Cell::new("Local").add_attribute(Attribute::Bold),
         Cell::new("Commits").add_attribute(Attribute::Bold),
@@ -49,10 +49,22 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let repo_path = repo.path.canonicalize().unwrap_or(repo.path.clone());
-        let root_path = args.dir.canonicalize().unwrap_or(args.dir.clone());
-        let repo_path_relative = repo_path.strip_prefix(&root_path).unwrap_or(&repo_path);
-        let name_cell = Cell::new(repo_path_relative.display().to_string()).fg(repo.status.comfy_color());
+        let repo_path = repo
+            .path
+            .canonicalize()
+            .unwrap_or_else(|_| repo.path.clone());
+        let root_path = args.dir.canonicalize().unwrap_or_else(|_| args.dir.clone());
+        let repo_path_relative = repo_path
+            .strip_prefix(&root_path)
+            .unwrap_or(&repo_path)
+            .display()
+            .to_string();
+        let display_str = if repo_path_relative == repo.name {
+            repo.name.clone()
+        } else {
+            format!("{} ({})", repo.name, repo_path_relative)
+        };
+        let name_cell = Cell::new(display_str).fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
