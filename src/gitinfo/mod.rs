@@ -35,17 +35,10 @@ fn get_repo_name(repo: &Repository) -> Option<String> {
     if let Ok(remote) = repo.find_remote("origin")
         && let Some(url) = remote.url()
     {
-        {
-            return Some(
-                url.trim_end_matches(".git")
-                    .split('/')
-                    .next_back()
-                    .unwrap_or("unknown")
-                    .to_owned(),
-            );
-        }
+        // Remove trailing "/" and ".git" if present
+        let url = url.trim_end_matches('/').trim_end_matches(".git");
+        return Some(url.split('/').next_back().unwrap_or("unknown").to_owned());
     }
-
     None
 }
 
