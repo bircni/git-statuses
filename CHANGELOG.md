@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.6.2](https://github.com/bircni/git-statuses/compare/0.6.1..0.6.2) - 2025-10-03
+
+### Bug Fixes
+
+- display relative repo path instead of repo name - ([df1bae7](https://github.com/bircni/git-statuses/commit/df1bae753fd0361ec4ff49ea23257e7bb623572b)) - casperklein
+
 ## [0.6.1](https://github.com/bircni/git-statuses/compare/0.6.0..0.6.1) - 2025-09-02
 
 ### Bug Fixes
