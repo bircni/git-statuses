@@ -10,6 +10,24 @@ use crate::gitinfo::status::Status;
 pub mod repoinfo;
 pub mod status;
 
+/// Gets the first available remote name, preferring "origin".
+/// If "origin" doesn't exist, it returns the first available remote.
+/// # Arguments
+/// * `repo` - The Git repository to check for remotes.
+/// # Returns
+/// An `Option<String>` containing the remote name if found, or `None` if no remotes exist.
+fn get_remote_name(repo: &Repository) -> Option<String> {
+    // Try "origin" first
+    if repo.find_remote("origin").is_ok() {
+        return Some("origin".to_owned());
+    }
+
+    // Otherwise, get the first available remote
+    repo.remotes()
+        .ok()
+        .and_then(|remotes| remotes.get(0).map(ToOwned::to_owned))
+}
+
 /// Gets the path of the repository.
 /// If the path ends with `.git`, it returns the parent directory.
 /// # Arguments
@@ -32,7 +50,8 @@ fn get_repo_path(repo: &Repository) -> path::PathBuf {
 /// # Returns
 /// An `Option<String>` containing the repository name if found, or `None` if not.
 fn get_repo_name(repo: &Repository) -> Option<String> {
-    if let Ok(remote) = repo.find_remote("origin")
+    let remote_name = get_remote_name(repo)?;
+    if let Ok(remote) = repo.find_remote(&remote_name)
         && let Some(url) = remote.url()
     {
         {
@@ -147,28 +166,31 @@ pub fn get_changed_count(repo: &Repository) -> usize {
         .unwrap_or(0)
 }
 
-/// Returns the remote URL for "origin", if available.
+/// Returns the remote URL for the first available remote (preferring "origin"), if available.
 pub fn get_remote_url(repo: &Repository) -> Option<String> {
-    repo.find_remote("origin")
+    let remote_name = get_remote_name(repo)?;
+    repo.find_remote(&remote_name)
         .ok()
         .and_then(|r| r.url().map(ToOwned::to_owned))
 }
 
-/// Executes a fetch operation for the "origin" remote to update upstream information.
+/// Executes a fetch operation for the first available remote (preferring "origin") to update upstream information.
 pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
+    let remote_name = get_remote_name(repo).ok_or_else(|| anyhow::anyhow!("No remotes found"))?;
     let path = repo
         .path()
         .parent()
         .ok_or_else(|| anyhow::anyhow!("No parent directory found"))?;
     let output = Command::new("git")
         .arg("fetch")
-        .arg("origin")
+        .arg(&remote_name)
         .current_dir(path)
         .output()?;
 
     if !output.status.success() {
         anyhow::bail!(
-            "Failed to fetch from origin: {}",
+            "Failed to fetch from {}: {}",
+            remote_name,
             String::from_utf8_lossy(&output.stderr)
         )
     }
@@ -195,7 +217,12 @@ pub fn get_branch_push_status(repo: &Repository) -> Status {
         return Status::Unknown;
     };
 
-    let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{local_branch}")) else {
+    let Some(remote_name) = get_remote_name(repo) else {
+        return Status::Unpublished;
+    };
+
+    let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/{remote_name}/{local_branch}"))
+    else {
         return Status::Unpublished;
     };
 
