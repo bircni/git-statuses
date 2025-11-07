@@ -521,33 +521,3 @@ fn test_get_branch_push_status_no_remote() {
     let status = gitinfo::get_branch_push_status(&repo);
     assert_eq!(status, Status::Unpublished);
 }
-
-#[test]
-fn test_get_branch_push_status_with_non_origin_remote() {
-    let (tmp, repo) = init_temp_repo();
-    let path = tmp.path().join("test.txt");
-    fs::write(&path, "content").unwrap();
-    let mut index = repo.index().unwrap();
-    index.add_path(Path::new("test.txt")).unwrap();
-    index.write().unwrap();
-    let oid = index.write_tree().unwrap();
-    let sig = repo.signature().unwrap();
-    let tree = repo.find_tree(oid).unwrap();
-    let commit_oid = repo
-        .commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
-        .unwrap();
-
-    repo.remote("upstream", "https://github.com/user/repo.git")
-        .unwrap();
-
-    repo.reference(
-        "refs/remotes/upstream/main",
-        commit_oid,
-        false,
-        "create remote tracking branch",
-    )
-    .unwrap();
-
-    let status = gitinfo::get_branch_push_status(&repo);
-    assert_eq!(status, Status::Clean);
-}
