@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.0](https://github.com/bircni/git-statuses/compare/0.6.2..0.7.0) - 2025-11-15
+
+### Features
+
+- enhance remote handling by using different remote names and adding tests for remote URL retrieval - ([8b79dc4](https://github.com/bircni/git-statuses/commit/8b79dc4cb506fcaa3d0d2a77a9c73041c2a442a9)) - Nicolas
+
+### Tests
+
+- Add Smoketest with time measurement - ([a3b5419](https://github.com/bircni/git-statuses/commit/a3b54196d054ebb14cd55a165fca4ba252419a73)) - Nicolas
+
+### Build
+
+- **(deps)** update dependencies - ([5fdae40](https://github.com/bircni/git-statuses/commit/5fdae40a7245a86e93fe2c129870c9619685def3)) - Nicolas
+
 ## [0.6.2](https://github.com/bircni/git-statuses/compare/0.6.1..0.6.2) - 2025-10-03
 
 ### Bug Fixes

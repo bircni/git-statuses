@@ -40,6 +40,14 @@ echo "Version updated successfully in Cargo.toml and Cargo.lock."
 echo "Generating changelog..."
 git cliff --output CHANGELOG.md -t "$version"
 echo "Changelog generated successfully."
+
+echo "Building the project to update Cargo.lock..."
+cargo build --release --quiet
+if [ $? -ne 0 ]; then
+    err "Build failed. Please fix the issues and try again."
+    exit 1
+fi
+echo "Project built successfully."
 # Ask for confirmation before committing
 echo "Do you want to commit the changes? (y/n)"
 read -r answer
