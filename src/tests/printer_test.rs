@@ -31,6 +31,7 @@ fn test_repositories_table_with_data() {
         path: PathBuf::from("/path/to/repo1"),
         stash_count: 0,
         is_local_only: false,
+        fast_forwarded: false,
         repo_path: "repo1".to_owned(),
     }];
     let args = Args {
@@ -64,6 +65,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             path: PathBuf::from("/path/to/repo-with-stash"),
             stash_count: 2,
             is_local_only: true,
+            fast_forwarded: false,
             repo_path: "repo-with-stash".to_owned(),
         },
         RepoInfo {
@@ -78,6 +80,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             path: PathBuf::from("/path/to/repo-with-upstream"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "repo-with-upstream".to_owned(),
         },
     ];
@@ -104,6 +107,7 @@ fn test_repositories_table_with_path_option() {
         path: PathBuf::from("/very/long/path/to/repository"),
         stash_count: 0,
         is_local_only: true,
+        fast_forwarded: false,
         repo_path: "test-repo".to_owned(),
     }];
     let args = Args {
@@ -130,6 +134,7 @@ fn test_repositories_table_condensed_layout() {
         path: PathBuf::from("/path/to/repo"),
         stash_count: 1,
         is_local_only: false,
+        fast_forwarded: false,
         repo_path: "repo".to_owned(),
     }];
     let args = Args {
@@ -159,6 +164,7 @@ fn test_repositories_table_non_clean_filter() {
             path: PathBuf::from("/path/to/clean"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "clean-repo".to_owned(),
         },
         RepoInfo {
@@ -173,6 +179,7 @@ fn test_repositories_table_non_clean_filter() {
             path: PathBuf::from("/path/to/dirty"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "dirty-repo".to_owned(),
         },
     ];
@@ -201,6 +208,7 @@ fn test_repositories_table_sorting() {
             path: PathBuf::from("/path/to/zebra"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "zebra-repo".to_owned(),
         },
         RepoInfo {
@@ -215,6 +223,7 @@ fn test_repositories_table_sorting() {
             path: PathBuf::from("/path/to/alpha"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "Alpha-Repo".to_owned(),
         },
         RepoInfo {
@@ -229,6 +238,7 @@ fn test_repositories_table_sorting() {
             path: PathBuf::from("/path/to/beta"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "beta-repo".to_owned(),
         },
     ];
@@ -259,6 +269,7 @@ fn test_repositories_table_various_statuses() {
             path: PathBuf::from("/path/to/rebase"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "rebase-repo".to_owned(),
         },
         RepoInfo {
@@ -273,6 +284,7 @@ fn test_repositories_table_various_statuses() {
             path: PathBuf::from("/path/to/cherry"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "cherry-repo".to_owned(),
         },
         RepoInfo {
@@ -287,6 +299,7 @@ fn test_repositories_table_various_statuses() {
             path: PathBuf::from("/path/to/bisect"),
             stash_count: 1,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "bisect-repo".to_owned(),
         },
     ];
@@ -320,6 +333,7 @@ fn test_summary_comprehensive() {
             path: PathBuf::from("/path/to/clean1"),
             stash_count: 0,
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "clean1".to_owned(),
         },
         RepoInfo {
@@ -334,6 +348,7 @@ fn test_summary_comprehensive() {
             path: PathBuf::from("/path/to/clean2"),
             stash_count: 1,      // has stash
             is_local_only: true, // local only
+            fast_forwarded: false,
             repo_path: "clean2".to_owned(),
         },
         RepoInfo {
@@ -348,6 +363,7 @@ fn test_summary_comprehensive() {
             path: PathBuf::from("/path/to/dirty"),
             stash_count: 2, // has stashes
             is_local_only: false,
+            fast_forwarded: false,
             repo_path: "dirty".to_owned(),
         },
     ];
@@ -404,6 +420,7 @@ fn test_summary_edge_cases() {
         path: PathBuf::from("/path/to/unknown"),
         stash_count: 0,
         is_local_only: true,
+        fast_forwarded: false,
         repo_path: "unknown-status".to_owned(),
     }];
     summary(&edge_repos, 0);

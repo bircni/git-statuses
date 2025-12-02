@@ -3,7 +3,7 @@ use std::{
     process::Command,
 };
 
-use git2::{Repository, StatusOptions};
+use git2::{Branch, Repository, StatusOptions};
 
 use crate::gitinfo::status::Status;
 
@@ -196,6 +196,31 @@ pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+//Executes a fast-forward merge to update local checkout
+pub fn merge_ff(repo: &Repository) -> anyhow::Result<bool> {
+    let head = repo.head()?;
+
+    if head.is_branch() {
+        let branch = Branch::wrap(head);
+        let upstream = branch.upstream()?;
+        let upstream_head_commit = repo.reference_to_annotated_commit(upstream.get())?;
+
+        // If fast-forward merge is possible and the user doesn't explicitly forbids it, let's proceed
+        if let Ok((merge_analysis, merge_pref)) = repo.merge_analysis(&[&upstream_head_commit])
+            && merge_analysis.is_fast_forward()
+            && !merge_pref.is_no_fast_forward()
+        {
+            let upstream_head_commit_id = upstream_head_commit.id();
+            repo.checkout_tree(&repo.find_object(upstream_head_commit_id, None)?, None)?;
+            repo.head()?
+                .set_target(upstream_head_commit_id, "updated by git-statuses")?;
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Checks if the current branch is unpushed or has unpushed commits.
