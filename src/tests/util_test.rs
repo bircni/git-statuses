@@ -40,6 +40,7 @@ fn test_print_repositories_and_summary() {
         path: PathBuf::from("/path/to/dummy"),
         stash_count: 0,
         is_local_only: false,
+        fast_forwarded: false,
         repo_path: "dummy".to_owned(),
     };
     let args = Args {
@@ -82,6 +83,7 @@ fn test_print_repositories_with_remote() {
         path: PathBuf::from("/path/to/dummy"),
         stash_count: 0,
         is_local_only: false,
+        fast_forwarded: false,
         repo_path: "dummy".to_owned(),
     };
     let args = Args {

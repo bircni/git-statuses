@@ -83,7 +83,7 @@ fn draw_repository_list_ui(
             Cell::from(repo.branch.clone()),
             Cell::from(repo.format_local_status()),
             Cell::from(repo.commits.to_string()),
-            Cell::from(repo.format_status_with_stash()).style(status_style),
+            Cell::from(repo.format_status_with_stash_and_ff()).style(status_style),
         ];
 
         if args.remote {

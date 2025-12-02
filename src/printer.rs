@@ -56,7 +56,7 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
             Cell::new(&repo.branch),
             Cell::new(repo.format_local_status()),
             Cell::new(repo.commits),
-            Cell::new(repo.format_status_with_stash()).fg(repo.status.comfy_color()),
+            Cell::new(repo.format_status_with_stash_and_ff()).fg(repo.status.comfy_color()),
         ];
         if args.remote {
             row.push(Cell::new(repo.remote_url.as_deref().unwrap_or("-")));
@@ -92,6 +92,7 @@ pub fn legend(condensed: bool) {
     println!("{table}");
     println!("The counts in brackets indicate the number of changed files.");
     println!("The counts in brackets with an asterisk (*) indicate the number of stashes.");
+    println!("↑↑ indicates that the repository was fast-forwarded");
 }
 
 /// Prints a summary of the repository scan (total, clean, dirty, unpushed).
@@ -109,6 +110,7 @@ pub fn summary(repos: &[RepoInfo], failed: usize) {
     let unpushed = repos.iter().filter(|r| r.has_unpushed).count();
     let with_stashes = repos.iter().filter(|r| r.stash_count > 0).count();
     let local_only = repos.iter().filter(|r| r.is_local_only).count();
+    let fast_forwarded = repos.iter().filter(|r| r.fast_forwarded).count();
     println!("\nSummary:");
     println!("  Total repositories:   {total}");
     println!("  Clean:                {clean}");
@@ -116,6 +118,7 @@ pub fn summary(repos: &[RepoInfo], failed: usize) {
     println!("  With unpushed:        {unpushed}");
     println!("  With stashes:         {with_stashes}");
     println!("  Local-only branches:  {local_only}");
+    println!("  Fast-forwarded:       {fast_forwarded}");
     if failed > 0 {
         println!("  Failed to process:    {failed}");
     }
