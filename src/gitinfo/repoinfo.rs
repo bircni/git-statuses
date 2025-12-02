@@ -29,6 +29,8 @@ pub struct RepoInfo {
     pub stash_count: usize,
     /// True if the current branch has no upstream (local-only).
     pub is_local_only: bool,
+    /// True if the repository was fast-forwarded
+    pub fast_forwarded: bool,
     /// relative path from the starting directory
     pub repo_path: String,
 }
@@ -54,9 +56,10 @@ impl RepoInfo {
         name: &str,
         show_remote: bool,
         fetch: bool,
+        merge: bool,
         dir: &Path,
     ) -> anyhow::Result<Self> {
-        if fetch {
+        if fetch || merge {
             // Attempt to fetch from origin, ignoring errors
             gitinfo::fetch_origin(repo)?;
         }
@@ -82,6 +85,12 @@ impl RepoInfo {
         } else {
             repo_path_relative
         };
+        let fast_forwarded = if merge {
+            // Fast-forward merge
+            gitinfo::merge_ff(repo)?
+        } else {
+            false
+        };
 
         Ok(Self {
             name,
@@ -95,6 +104,7 @@ impl RepoInfo {
             path,
             stash_count,
             is_local_only,
+            fast_forwarded,
             repo_path: repo_path_relative.display().to_string(),
         })
     }
@@ -113,12 +123,14 @@ impl RepoInfo {
     /// Formats the status with stash information if stashes are present.
     /// # Returns
     /// A formatted string showing status and stash count if present.
-    pub fn format_status_with_stash(&self) -> String {
-        let status_str = self.status.to_string();
+    pub fn format_status_with_stash_and_ff(&self) -> String {
+        let mut status_str = self.status.to_string();
         if self.stash_count > 0 {
-            format!("{status_str} ({}*)", self.stash_count)
-        } else {
-            status_str
+            status_str = format!("{status_str} ({}*)", self.stash_count);
         }
+        if self.fast_forwarded {
+            status_str = format!("{status_str} ↑↑");
+        }
+        status_str
     }
 }

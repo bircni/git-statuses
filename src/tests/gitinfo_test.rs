@@ -128,6 +128,7 @@ fn test_repo_info_new_with_and_without_remote() {
         "tmp",
         false,
         false,
+        false,
         &PathBuf::from("/path/to/repo"),
     );
     info.unwrap();
@@ -136,6 +137,7 @@ fn test_repo_info_new_with_and_without_remote() {
         &mut repo,
         "tmp",
         true,
+        false,
         false,
         &PathBuf::from("/path/to/repo"),
     );
@@ -258,6 +260,7 @@ fn test_repo_info_includes_stash_and_local_status() {
     let info = RepoInfo::new(
         &mut repo,
         "test",
+        false,
         false,
         false,
         &PathBuf::from("/path/to/repo"),
@@ -447,6 +450,7 @@ fn test_get_repo_name_from_url() {
     let info = RepoInfo::new(
         &mut repo,
         "fallback-name",
+        false,
         false,
         false,
         &PathBuf::from("/path/to/repo"),
