@@ -18,7 +18,7 @@ clap_complete = "4.5"
 comfy-table = "7.2.1"
 crossterm = "0.29"
 git2 = { version = "0.20", default-features = false, features = ["https", "ssh", "vendored-openssl"] }
-log = "0.4.28"
+log = "0.4.29"
 parking_lot = "0.12.5"
 ratatui = "0.29"
 rayon = "1.11.0"
@@ -30,7 +30,7 @@ strum_macros = "0.27"
 walkdir = "2.5"
 
 [dev-dependencies]
-insta = { version = "1.43", features = ["json"] }
+insta = { version = "1.44", features = ["json"] }
 tempfile = "3.23"
 
 
