@@ -1,5 +1,6 @@
 ---
 source: src/tests/cli_test.rs
+assertion_line: 34
 expression: help_text
 ---
 A tool to display git repository statuses in a table format
@@ -29,6 +30,9 @@ Options:
 
   -f, --fetch
           Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
+
+  -F, --ff
+          Run a fast-forward merge after fetching
 
   -l, --legend
           Print a legend explaining the color codes and statuses used in the output

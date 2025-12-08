@@ -38,6 +38,9 @@ pub struct Args {
     /// Note: This may take a while for large repositories.
     #[arg(short, long)]
     pub fetch: bool,
+    /// Run a fast-forward merge after fetching
+    #[arg(short = 'F', long = "ff")]
+    pub fast_forward: bool,
     /// Print a legend explaining the color codes and statuses used in the output
     #[arg(short, long)]
     pub legend: bool,
@@ -118,6 +121,7 @@ impl Args {
                         &repo_name,
                         self.remote,
                         self.fetch,
+                        self.fast_forward,
                         &self.dir,
                     ) {
                         repos.write().push(repo);

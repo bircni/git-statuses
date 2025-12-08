@@ -260,3 +260,78 @@ fn test_integration_repository_with_remote() {
         Some("https://github.com/example/test-repo.git".to_owned())
     );
 }
+
+#[test]
+fn test_integration_repository_fast_forward() {
+    let remote_temp_dir = TempDir::new().unwrap();
+    let local_temp_dir = TempDir::new().unwrap();
+
+    let remote_repo_name = "remote-repo";
+    let remote_repo_path = remote_temp_dir.path().join(remote_repo_name);
+    let remote_url = format!("file://{}", remote_repo_path.display());
+
+    // Create repository faking remote
+    let remote_repo = create_git_repo_with_commit(remote_temp_dir.path(), remote_repo_name);
+
+    // Create git repository, clone from remote
+    let _local_repo =
+        Repository::clone(&remote_url, local_temp_dir.path().join("local-repo")).unwrap();
+
+    // Test that the clone was NOT fast-forwarded
+    let args = Args {
+        dir: local_temp_dir.path().to_path_buf(),
+        fast_forward: true,
+        ..Default::default()
+    };
+
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(repos.len(), 1);
+    assert_eq!(failed.len(), 0);
+    assert!(!repos[0].fast_forwarded);
+
+    // Add a commit to remote
+    let file_path = remote_repo_path.join("dummy.md");
+    fs::write(&file_path, "# Second commit\n").unwrap();
+
+    let mut index = remote_repo.index().unwrap();
+    index.add_path(Path::new("dummy.md")).unwrap();
+    index.write().unwrap();
+
+    let tree_id = index.write_tree().unwrap();
+    let tree = remote_repo.find_tree(tree_id).unwrap();
+    let sig = remote_repo.signature().unwrap();
+    let head = remote_repo.head().unwrap();
+    let head_annotated_commit = remote_repo.reference_to_annotated_commit(&head).unwrap();
+    let head_commit_id = head_annotated_commit.id();
+    let head_object = remote_repo.find_object(head_commit_id, None).unwrap();
+    let head_commit = head_object.into_commit().unwrap();
+    remote_repo
+        .commit(
+            Some("HEAD"),
+            &sig,
+            &sig,
+            "Second commit",
+            &tree,
+            &[&head_commit],
+        )
+        .unwrap();
+
+    // Test that the clone was fast-forwarded
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(repos.len(), 1);
+    assert_eq!(failed.len(), 0);
+    assert_eq!(repos[0].commits, 1);
+    assert_eq!(repos[0].behind, 1);
+    assert!(repos[0].fast_forwarded);
+
+    // Test that the clone is now up to date and doesn't need fast-forward
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(repos.len(), 1);
+    assert_eq!(failed.len(), 0);
+    assert_eq!(repos[0].commits, 2);
+    assert_eq!(repos[0].behind, 0);
+    assert!(!repos[0].fast_forwarded);
+}
