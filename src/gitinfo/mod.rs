@@ -198,7 +198,7 @@ pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     Ok(())
 }
 
-//Executes a fast-forward merge to update local checkout
+/// Executes a fast-forward merge to update local checkout
 pub fn merge_ff(repo: &Repository) -> anyhow::Result<bool> {
     let head = repo.head()?;
 
