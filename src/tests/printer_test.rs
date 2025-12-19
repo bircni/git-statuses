@@ -33,6 +33,7 @@ fn test_repositories_table_with_data() {
         is_local_only: false,
         fast_forwarded: false,
         repo_path: "repo1".to_owned(),
+        is_worktree: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -67,6 +68,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             is_local_only: true,
             fast_forwarded: false,
             repo_path: "repo-with-stash".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "repo-with-upstream".to_owned(),
@@ -82,6 +84,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "repo-with-upstream".to_owned(),
+            is_worktree: false,
         },
     ];
     let args = Args {
@@ -109,6 +112,7 @@ fn test_repositories_table_with_path_option() {
         is_local_only: true,
         fast_forwarded: false,
         repo_path: "test-repo".to_owned(),
+        is_worktree: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -136,6 +140,7 @@ fn test_repositories_table_condensed_layout() {
         is_local_only: false,
         fast_forwarded: false,
         repo_path: "repo".to_owned(),
+        is_worktree: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -166,6 +171,7 @@ fn test_repositories_table_non_clean_filter() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "clean-repo".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "dirty-repo".to_owned(),
@@ -181,6 +187,7 @@ fn test_repositories_table_non_clean_filter() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "dirty-repo".to_owned(),
+            is_worktree: false,
         },
     ];
     let args = Args {
@@ -210,6 +217,7 @@ fn test_repositories_table_sorting() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "zebra-repo".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "Alpha-Repo".to_owned(), // Capital letter
@@ -225,6 +233,7 @@ fn test_repositories_table_sorting() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "Alpha-Repo".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "beta-repo".to_owned(),
@@ -240,6 +249,7 @@ fn test_repositories_table_sorting() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "beta-repo".to_owned(),
+            is_worktree: false,
         },
     ];
     let args = Args {
@@ -271,6 +281,7 @@ fn test_repositories_table_various_statuses() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "rebase-repo".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "cherry-repo".to_owned(),
@@ -286,6 +297,7 @@ fn test_repositories_table_various_statuses() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "cherry-repo".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "bisect-repo".to_owned(),
@@ -301,6 +313,7 @@ fn test_repositories_table_various_statuses() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "bisect-repo".to_owned(),
+            is_worktree: false,
         },
     ];
     let args = Args {
@@ -335,6 +348,7 @@ fn test_summary_comprehensive() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "clean1".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "clean2".to_owned(),
@@ -350,6 +364,7 @@ fn test_summary_comprehensive() {
             is_local_only: true, // local only
             fast_forwarded: false,
             repo_path: "clean2".to_owned(),
+            is_worktree: false,
         },
         RepoInfo {
             name: "dirty".to_owned(),
@@ -365,6 +380,7 @@ fn test_summary_comprehensive() {
             is_local_only: false,
             fast_forwarded: false,
             repo_path: "dirty".to_owned(),
+            is_worktree: false,
         },
     ];
 
@@ -422,6 +438,7 @@ fn test_summary_edge_cases() {
         is_local_only: true,
         fast_forwarded: false,
         repo_path: "unknown-status".to_owned(),
+        is_worktree: false,
     }];
     summary(&edge_repos, 0);
 }

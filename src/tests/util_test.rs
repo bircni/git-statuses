@@ -42,6 +42,7 @@ fn test_print_repositories_and_summary() {
         is_local_only: false,
         fast_forwarded: false,
         repo_path: "dummy".to_owned(),
+        is_worktree: false,
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),
@@ -85,6 +86,7 @@ fn test_print_repositories_with_remote() {
         is_local_only: false,
         fast_forwarded: false,
         repo_path: "dummy".to_owned(),
+        is_worktree: false,
     };
     let args = Args {
         dir: Path::new(".").to_path_buf(),

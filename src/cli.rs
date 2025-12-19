@@ -97,13 +97,19 @@ impl Args {
 
         walker.par_iter().for_each(|entry| {
             let orig_path = entry.path();
+
+            // Skip internal .git/worktrees directories - these are metadata, not actual repos
+            if orig_path.to_string_lossy().contains("/.git/worktrees/") {
+                return;
+            }
+
             let repo_name = orig_path.dir_name();
             let path_buf = {
-                if orig_path.is_git_directory() {
+                if orig_path.is_git_directory() || orig_path.is_git_worktree() {
                     orig_path.to_path_buf()
                 } else if let Some(subdir) = &self.subdir {
                     let subdir_path = orig_path.join(subdir);
-                    if subdir_path.is_git_directory() {
+                    if subdir_path.is_git_directory() || subdir_path.is_git_worktree() {
                         subdir_path
                     } else {
                         // If the subdir does not exist, skip this directory

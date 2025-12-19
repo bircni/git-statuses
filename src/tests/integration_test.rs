@@ -335,3 +335,191 @@ fn test_integration_repository_fast_forward() {
     assert_eq!(repos[0].behind, 0);
     assert!(!repos[0].fast_forwarded);
 }
+
+#[test]
+fn test_integration_worktree_detection() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create a main repository with an initial commit
+    let main_repo_path = temp_dir.path().join("main-repo");
+    fs::create_dir_all(&main_repo_path).unwrap();
+    let repo = Repository::init(&main_repo_path).unwrap();
+
+    // Configure user for commits
+    let mut config = repo.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
+    drop(config);
+
+    // Create initial commit on main branch
+    let file_path = main_repo_path.join("README.md");
+    fs::write(&file_path, "# Main Repository\n").unwrap();
+
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("README.md")).unwrap();
+    index.write().unwrap();
+
+    let tree_id = index.write_tree().unwrap();
+    let tree = repo.find_tree(tree_id).unwrap();
+    let sig = repo.signature().unwrap();
+
+    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+        .unwrap();
+
+    drop(tree);
+    drop(index);
+
+    // Create a feature branch
+    let head = repo.head().unwrap();
+    let target = head.target().unwrap();
+    let commit = repo.find_commit(target).unwrap();
+    repo.branch("feature-branch", &commit, false).unwrap();
+    drop(commit);
+    drop(head);
+
+    // Create a worktree using git command (git2-rs doesn't have worktree creation API)
+    let worktree_path = temp_dir.path().join("feature-worktree");
+    let output = std::process::Command::new("git")
+        .arg("worktree")
+        .arg("add")
+        .arg(&worktree_path)
+        .arg("feature-branch")
+        .current_dir(&main_repo_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Failed to create worktree: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Now scan the temp directory for repositories
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 2,
+        ..Default::default()
+    };
+
+    let (repos, failed) = args.find_repositories();
+
+    // We should find exactly 2 repositories: main repo and worktree
+    assert_eq!(failed.len(), 0, "Failed repos: {failed:?}");
+    assert_eq!(
+        repos.len(),
+        2,
+        "Expected 2 repos (main + worktree), found {}: {:?}",
+        repos.len(),
+        repos.iter().map(|r| &r.repo_path).collect::<Vec<_>>()
+    );
+
+    // Find the main repo and worktree
+    let main_repo = repos
+        .iter()
+        .find(|r| r.repo_path.contains("main-repo"))
+        .unwrap();
+    let worktree = repos
+        .iter()
+        .find(|r| r.repo_path.contains("feature-worktree"))
+        .unwrap();
+
+    // Verify main repo is NOT a worktree
+    assert!(
+        !main_repo.is_worktree,
+        "Main repo should not be marked as worktree"
+    );
+    // Git might use "main" or "master" depending on configuration
+    assert!(
+        main_repo.branch == "main" || main_repo.branch == "master",
+        "Main repo branch should be 'main' or 'master', got: {}",
+        main_repo.branch
+    );
+
+    // Verify worktree IS detected as a worktree
+    assert!(
+        worktree.is_worktree,
+        "Worktree should be marked as worktree"
+    );
+    assert_eq!(worktree.branch, "feature-branch");
+
+    // Verify that the worktree path doesn't contain .git/worktrees
+    assert!(
+        !worktree.repo_path.contains(".git/worktrees"),
+        "Worktree path should not contain .git/worktrees, got: {}",
+        worktree.repo_path
+    );
+
+    // Verify both have the same commit count (since they're from the same repo)
+    assert_eq!(main_repo.commits, worktree.commits);
+}
+
+#[test]
+fn test_integration_worktree_with_changes() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create a main repository
+    let main_repo_path = temp_dir.path().join("main-repo");
+    fs::create_dir_all(&main_repo_path).unwrap();
+    let repo = Repository::init(&main_repo_path).unwrap();
+
+    // Configure user
+    let mut config = repo.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
+    drop(config);
+
+    // Create initial commit
+    let file_path = main_repo_path.join("file.txt");
+    fs::write(&file_path, "content\n").unwrap();
+
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+
+    let tree_id = index.write_tree().unwrap();
+    let tree = repo.find_tree(tree_id).unwrap();
+    let sig = repo.signature().unwrap();
+
+    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+        .unwrap();
+
+    drop(tree);
+    drop(index);
+
+    // Create worktree
+    let worktree_path = temp_dir.path().join("worktree");
+    let output = std::process::Command::new("git")
+        .arg("worktree")
+        .arg("add")
+        .arg(&worktree_path)
+        .arg("-b")
+        .arg("new-branch")
+        .current_dir(&main_repo_path)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Make changes in the worktree
+    let worktree_file = worktree_path.join("new-file.txt");
+    fs::write(&worktree_file, "worktree changes\n").unwrap();
+
+    // Scan repositories
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 2,
+        ..Default::default()
+    };
+
+    let (repos, _failed) = args.find_repositories();
+
+    // Find worktree
+    let worktree = repos.iter().find(|r| r.is_worktree).unwrap();
+
+    // Verify worktree has dirty status due to uncommitted changes
+    assert!(
+        worktree.status.to_string().contains("Dirty"),
+        "Worktree should be dirty, got status: {}",
+        worktree.status
+    );
+}

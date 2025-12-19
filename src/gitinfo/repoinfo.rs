@@ -5,6 +5,10 @@ use git2::Repository;
 use crate::gitinfo::{self, status::Status};
 
 /// Holds information about a Git repository for status display.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "This structure holds repository state flags that are naturally represented as booleans"
+)]
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct RepoInfo {
     /// The directory name of the repository.
@@ -33,6 +37,8 @@ pub struct RepoInfo {
     pub fast_forwarded: bool,
     /// relative path from the starting directory
     pub repo_path: String,
+    /// True if this is a Git worktree
+    pub is_worktree: bool,
 }
 
 impl RepoInfo {
@@ -91,6 +97,7 @@ impl RepoInfo {
         } else {
             false
         };
+        let is_worktree = repo.is_worktree();
 
         Ok(Self {
             name,
@@ -106,6 +113,7 @@ impl RepoInfo {
             is_local_only,
             fast_forwarded,
             repo_path: repo_path_relative.display().to_string(),
+            is_worktree,
         })
     }
 

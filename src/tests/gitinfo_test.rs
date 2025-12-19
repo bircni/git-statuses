@@ -469,7 +469,10 @@ fn test_get_repo_path_functionality() {
 
     // When we get the working directory, it should be the parent
     let workdir = repo.workdir().unwrap();
-    assert_eq!(workdir, tmp.path());
+    // Canonicalize both paths to handle macOS symlinks (/var vs /private/var)
+    let workdir_canonical = workdir.canonicalize().unwrap();
+    let tmp_canonical = tmp.path().canonicalize().unwrap();
+    assert_eq!(workdir_canonical, tmp_canonical);
 }
 
 #[test]
