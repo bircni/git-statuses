@@ -30,11 +30,18 @@ fn get_remote_name(repo: &Repository) -> Option<String> {
 
 /// Gets the path of the repository.
 /// If the path ends with `.git`, it returns the parent directory.
+/// For worktrees, returns the worktree's working directory path.
 /// # Arguments
 /// * `repo` - The Git repository to check for the path.
 /// # Returns
 /// A `PathBuf` containing the repository path.
 fn get_repo_path(repo: &Repository) -> path::PathBuf {
+    // For worktrees, workdir() returns the actual working directory
+    if let Some(workdir) = repo.workdir() {
+        return workdir.to_path_buf();
+    }
+
+    // Fallback for bare repos or edge cases
     let path = repo.path();
     if path.ends_with(".git") {
         path.parent().unwrap_or(path).to_path_buf()

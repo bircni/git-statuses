@@ -49,7 +49,12 @@ pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
     table.set_header(header);
 
     for repo in repos_iter {
-        let name_cell = Cell::new(&repo.repo_path).fg(repo.status.comfy_color());
+        let display_path = if repo.is_worktree {
+            format!("⎇ {}", repo.repo_path)
+        } else {
+            repo.repo_path.clone()
+        };
+        let name_cell = Cell::new(&display_path).fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
@@ -93,6 +98,7 @@ pub fn legend(condensed: bool) {
     println!("The counts in brackets indicate the number of changed files.");
     println!("The counts in brackets with an asterisk (*) indicate the number of stashes.");
     println!("↑↑ indicates that the repository was fast-forwarded");
+    println!("⎇ indicates a Git worktree");
 }
 
 /// Prints a summary of the repository scan (total, clean, dirty, unpushed).

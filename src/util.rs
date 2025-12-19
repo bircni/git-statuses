@@ -34,6 +34,13 @@ pub trait GitPathExt {
     /// `true` if the path is a Git repository, `false` otherwise.
     fn is_git_directory(&self) -> bool;
 
+    /// Checks if the path is a Git worktree.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the path is a Git worktree, `false` otherwise.
+    fn is_git_worktree(&self) -> bool;
+
     /// Extracts the repository name from the path.
     ///
     /// # Returns
@@ -47,6 +54,21 @@ pub trait GitPathExt {
 impl GitPathExt for Path {
     fn is_git_directory(&self) -> bool {
         self.is_dir() && self.join(".git").exists()
+    }
+
+    /// Checks if the path is a Git worktree.
+    ///
+    /// A worktree has a `.git` file (not directory) that points to the main repo.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the path is a Git worktree, `false` otherwise.
+    fn is_git_worktree(&self) -> bool {
+        if !self.is_dir() {
+            return false;
+        }
+        let git_path = self.join(".git");
+        git_path.exists() && git_path.is_file()
     }
 
     fn dir_name(&self) -> String {
