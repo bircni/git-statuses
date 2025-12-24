@@ -61,7 +61,6 @@ Options:
       --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
   -p, --path                 Show the path to the repository
   -n, --non-clean            Only show non clean repositories
-  -i, --interactive          Enable interactive mode to select and interact with repositories
   -h, --help                 Print help
   -V, --version              Print version
 ```

@@ -3,11 +3,10 @@ use std::io;
 use anyhow::Result;
 use clap::{CommandFactory as _, Parser as _};
 
-use crate::{cli::Args, interactive::mode::InteractiveMode};
+use crate::cli::Args;
 
 mod cli;
 mod gitinfo;
-mod interactive;
 mod printer;
 #[cfg(test)]
 mod tests;
@@ -35,13 +34,6 @@ fn main() -> Result<()> {
 
     if args.json {
         printer::json_output(&repos, &failed_repos);
-        return Ok(());
-    }
-
-    // Enter interactive mode if requested
-    if args.interactive {
-        let mut interactive_mode = InteractiveMode::new(&repos, args)?;
-        interactive_mode.run()?;
         return Ok(());
     }
 

@@ -58,9 +58,6 @@ pub struct Args {
     /// Only show non clean repositories
     #[arg(short = 'n', long)]
     pub non_clean: bool,
-    /// Enable interactive mode to select and interact with repositories
-    #[arg(short, long)]
-    pub interactive: bool,
     /// Output in JSON format
     #[arg(long)]
     pub json: bool,

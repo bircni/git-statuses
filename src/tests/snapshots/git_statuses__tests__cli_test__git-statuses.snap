@@ -1,6 +1,5 @@
 ---
 source: src/tests/cli_test.rs
-assertion_line: 34
 expression: help_text
 ---
 A tool to display git repository statuses in a table format
@@ -50,9 +49,6 @@ Options:
 
   -n, --non-clean
           Only show non clean repositories
-
-  -i, --interactive
-          Enable interactive mode to select and interact with repositories
 
       --json
           Output in JSON format
