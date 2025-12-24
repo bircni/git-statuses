@@ -120,29 +120,6 @@ impl Status {
         }
     }
 
-    pub const fn ratatui_color(&self) -> ratatui::style::Color {
-        use ratatui::style::Color;
-        match self {
-            Self::Clean => Color::Reset,
-            Self::Dirty(_) | Self::Unpushed | Self::Unpublished => Color::Red,
-            Self::Merge => Color::Blue,
-            Self::Revert => Color::Magenta,
-            Self::Rebase => Color::Cyan,
-            Self::Bisect => Color::LightYellow,
-            Self::CherryPick => Color::Yellow,
-            Self::Detached =>
-            // Purple color for detached HEAD state
-            {
-                Color::Rgb(255, 0, 255)
-            }
-            Self::Unknown =>
-            // Orange color for unknown status
-            {
-                Color::Rgb(255, 165, 0)
-            }
-        }
-    }
-
     /// Converts the status to a `Cell` for use in a table.
     /// This allows the status to be displayed with its associated color and attributes.
     pub fn as_cell(&self) -> Cell {
