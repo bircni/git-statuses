@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.8.0](https://github.com/bircni/git-statuses/compare/0.7.0..0.8.0) - 2025-12-31
+
+### Features
+
+- **(worktree)** Enhance Git worktree detection and representation in the CLI - ([421f0b3](https://github.com/bircni/git-statuses/commit/421f0b3c510643c0e38225caa1c58cef18618389)) - Nicolas
+- Add fast-forward functionality ([#45](https://github.com/bircni/git-statuses/issues/45)) - ([2d12939](https://github.com/bircni/git-statuses/commit/2d12939814935e7db50014b89c74b83721863193)) - Alexandre Veyrenc
+- Remove interactive mode - ([059a9c6](https://github.com/bircni/git-statuses/commit/059a9c635010f39c66b3b883dbe6754256a51d22)) - Nicolas
+
+### Build
+
+- **(deps)** Update dependencies - ([35853cf](https://github.com/bircni/git-statuses/commit/35853cfa2c813384fa6201b980d6504e64157f4c)) - Nicolas
+
 ## [0.7.0](https://github.com/bircni/git-statuses/compare/0.6.2..0.7.0) - 2025-11-15
 
 ### Features
