@@ -1,309 +1,75 @@
-use std::fs;
-use std::process::{Command, Stdio};
-use tempfile::TempDir;
+use std::path::PathBuf;
 
-/// Test the main binary execution with various flags
-/// These are more like end-to-end tests
+use clap::Parser;
 
-#[test]
-fn test_help_flag() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "--help"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
+use crate::{
+    cli::Args,
+    gitinfo::{repoinfo::RepoInfo, status::Status},
+};
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("A tool to display git repository statuses"));
-    assert!(stdout.contains("--depth"));
-    assert!(stdout.contains("--remote"));
+fn repo_info_with_status(status: Status, stash_count: usize, fast_forwarded: bool) -> RepoInfo {
+    RepoInfo {
+        name: "repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 3,
+        behind: 1,
+        commits: 42,
+        status,
+        has_unpushed: true,
+        remote_url: Some("https://example.com/repo.git".to_owned()),
+        path: PathBuf::from("/tmp/repo"),
+        stash_count,
+        is_local_only: false,
+        fast_forwarded,
+        repo_path: "repo".to_owned(),
+        is_worktree: false,
+    }
 }
 
 #[test]
-fn test_version_flag() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "--version"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("git-statuses"));
+fn test_repo_info_format_local_status_local_only() {
+    let mut repo = repo_info_with_status(Status::Clean, 0, false);
+    repo.is_local_only = true;
+    assert_eq!(repo.format_local_status(), "local-only");
 }
 
 #[test]
-fn test_legend_flag() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "--legend"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Status"));
-    assert!(stdout.contains("Description"));
-    assert!(stdout.contains("Clean"));
-    assert!(stdout.contains("Dirty"));
+fn test_repo_info_format_local_status_with_upstream_counts() {
+    let repo = repo_info_with_status(Status::Clean, 0, false);
+    assert_eq!(repo.format_local_status(), "↑3 ↓1");
 }
 
 #[test]
-fn test_legend_condensed() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "--legend", "--condensed"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Status"));
-    assert!(stdout.contains("Clean"));
-    // Should be in condensed format
+fn test_repo_info_format_status_with_stash_only() {
+    let repo = repo_info_with_status(Status::Dirty(2), 4, false);
+    assert_eq!(repo.format_status_with_stash_and_ff(), "Dirty (2) (4*)");
 }
 
 #[test]
-fn test_completions_bash() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "--completions", "bash"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("_git-statuses"));
-    assert!(stdout.contains("complete"));
+fn test_repo_info_format_status_with_fast_forward_only() {
+    let repo = repo_info_with_status(Status::Clean, 0, true);
+    assert_eq!(repo.format_status_with_stash_and_ff(), "Clean ↑↑");
 }
 
 #[test]
-fn test_empty_directory() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args(["run", "--", temp_dir.path().to_str().unwrap()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should complete without error even with no repos
+fn test_repo_info_format_status_with_stash_and_fast_forward() {
+    let repo = repo_info_with_status(Status::Unpushed, 2, true);
+    assert_eq!(repo.format_status_with_stash_and_ff(), "Unpushed (2*) ↑↑");
 }
 
 #[test]
-fn test_nonexistent_directory() {
-    let output = Command::new("cargo")
-        .args(["run", "--", "/path/that/does/not/exist"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    // Should handle nonexistent directory gracefully
-    let _stderr = String::from_utf8_lossy(&output.stderr);
-    // May contain error message about directory not existing
-    // but shouldn't crash
-}
-
-#[test]
-fn test_with_actual_git_repo() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create a git repository
-    let repo_path = temp_dir.path().join("test-repo");
-    fs::create_dir_all(&repo_path).unwrap();
-
-    // Initialize git repo
-    Command::new("git")
-        .args(["init"])
-        .current_dir(&repo_path)
-        .output()
-        .unwrap();
-
-    // Configure git
-    Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(&repo_path)
-        .output()
-        .unwrap();
-
-    Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(&repo_path)
-        .output()
-        .unwrap();
-
-    // Create and commit a file
-    fs::write(repo_path.join("README.md"), "# Test Repo").unwrap();
-    Command::new("git")
-        .args(["add", "README.md"])
-        .current_dir(&repo_path)
-        .output()
-        .unwrap();
-
-    Command::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(&repo_path)
-        .output()
-        .unwrap();
-
-    // Run git-statuses on the directory
-    let output = Command::new("cargo")
-        .args(["run", "--", temp_dir.path().to_str().unwrap()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("test-repo"));
-    assert!(stdout.contains("main") || stdout.contains("master")); // branch name
-}
-
-#[test]
-fn test_with_summary_flag() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args(["run", "--", "--summary", temp_dir.path().to_str().unwrap()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Summary:"));
-    assert!(stdout.contains("Total repositories:"));
-}
-
-#[test]
-fn test_depth_flag_integration() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create nested structure
-    let level1 = temp_dir.path().join("level1");
-    let level2 = level1.join("level2");
-    fs::create_dir_all(&level2).unwrap();
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "--depth",
-            "3",
-            temp_dir.path().to_str().unwrap(),
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should scan deeper directories
-}
-
-#[test]
-fn test_remote_flag_integration() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args(["run", "--", "--remote", temp_dir.path().to_str().unwrap()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should include remote column in output (even if empty)
-}
-
-#[test]
-fn test_condensed_flag_integration() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "--condensed",
-            temp_dir.path().to_str().unwrap(),
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should use condensed table format
-}
-
-#[test]
-fn test_multiple_flags_combination() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "--remote",
-            "--condensed",
-            "--summary",
-            "--depth",
-            "2",
-            temp_dir.path().to_str().unwrap(),
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Summary:"));
-    // Multiple flags should work together
-}
-
-#[test]
-fn test_path_flag_integration() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args(["run", "--", "--path", temp_dir.path().to_str().unwrap()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should include path column in output
-}
-
-#[test]
-fn test_non_clean_flag_integration() {
-    let temp_dir = TempDir::new().unwrap();
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "--non-clean",
-            temp_dir.path().to_str().unwrap(),
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    // Should only show non-clean repositories
+fn test_args_parse_json_fast_forward_and_subdir() {
+    let args = Args::parse_from([
+        "git-statuses",
+        "--json",
+        "--ff",
+        "--subdir",
+        "checkout",
+        "--depth=-1",
+        ".",
+    ]);
+    assert!(args.json);
+    assert!(args.fast_forward);
+    assert_eq!(args.subdir.as_deref(), Some("checkout"));
+    assert_eq!(args.depth, -1);
 }

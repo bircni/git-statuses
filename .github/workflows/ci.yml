@@ -11,18 +11,57 @@ on:
       - main
 
 jobs:
+
+  typos:
+    name: Typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+      - uses: crate-ci/typos@master
+
+  cargo-shear:
+    runs-on: ubuntu-latest
+    needs: typos
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install cargo-shear
+        run: cargo binstall --no-confirm cargo-shear
+
+      - run: cargo shear
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+    needs: typos
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: [cargo-shear, cargo-deny]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           lfs: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.ref_name }}
 
       - name: cargo build
         run: cargo build
@@ -30,15 +69,18 @@ jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+    needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           lfs: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.ref_name }}
       - name: Set up git user for testing purposes
         run: |
           git config --global user.email "ci@example.com"
@@ -53,35 +95,29 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  typos:
-    name: Typos
+  tarpaulin:
+    name: Tarpaulin
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - uses: crate-ci/typos@master
+    needs: check
 
-  cargo-shear:
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           lfs: true
 
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@main
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-shear
-        run: cargo binstall --no-confirm cargo-shear
-
-      - run: cargo shear
-
-  cargo-deny:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          lfs: true
-      - uses: EmbarkStudios/cargo-deny-action@v2
+          shared-key: ${{ github.ref_name }}
+
+      - name: Set up git user for tests
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI User"
+
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@cargo-tarpaulin
+
+      - name: Run coverage check
+        run: cargo tarpaulin --workspace --all-features --fail-under 90 --out Xml --out Stdout

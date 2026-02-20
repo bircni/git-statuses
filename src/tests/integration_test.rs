@@ -268,14 +268,14 @@ fn test_integration_repository_fast_forward() {
 
     let remote_repo_name = "remote-repo";
     let remote_repo_path = remote_temp_dir.path().join(remote_repo_name);
-    let remote_url = format!("file://{}", remote_repo_path.display());
+    let remote_path = remote_repo_path.to_string_lossy().to_string();
 
     // Create repository faking remote
     let remote_repo = create_git_repo_with_commit(remote_temp_dir.path(), remote_repo_name);
 
     // Create git repository, clone from remote
     let _local_repo =
-        Repository::clone(&remote_url, local_temp_dir.path().join("local-repo")).unwrap();
+        Repository::clone(&remote_path, local_temp_dir.path().join("local-repo")).unwrap();
 
     // Test that the clone was NOT fast-forwarded
     let args = Args {
