@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::cli::Args;
 use crate::gitinfo::repoinfo::RepoInfo;
 use crate::gitinfo::status::Status;
-use crate::printer::{failed_summary, legend, repositories_table, summary};
+use crate::printer::{failed_summary, json_output, legend, repositories_table, summary};
 
 #[test]
 fn test_repositories_table_empty() {
@@ -441,4 +441,52 @@ fn test_summary_edge_cases() {
         is_worktree: false,
     }];
     summary(&edge_repos, 0);
+}
+
+#[test]
+fn test_repositories_table_marks_worktree_rows() {
+    let mut repos = vec![RepoInfo {
+        name: "worktree-repo".to_owned(),
+        branch: "feature".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 3,
+        status: Status::Clean,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/worktree-repo"),
+        stash_count: 0,
+        is_local_only: false,
+        fast_forwarded: false,
+        repo_path: "worktree-repo".to_owned(),
+        is_worktree: true,
+    }];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        ..Default::default()
+    };
+    repositories_table(&mut repos, &args);
+}
+
+#[test]
+fn test_json_output_smoke() {
+    let repos = vec![RepoInfo {
+        name: "json-repo".to_owned(),
+        branch: "main".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 1,
+        status: Status::Clean,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to/json-repo"),
+        stash_count: 0,
+        is_local_only: false,
+        fast_forwarded: false,
+        repo_path: "json-repo".to_owned(),
+        is_worktree: false,
+    }];
+    let failed = vec!["broken-repo".to_owned()];
+    json_output(&repos, &failed);
 }
