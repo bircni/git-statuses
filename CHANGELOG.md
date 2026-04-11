@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.8.1](https://github.com/bircni/git-statuses/compare/0.8.0..0.8.1) - 2026-04-11
+
+### Tests
+
+- Add GitHub Actions workflow for coverage and enhance test cases - ([a6d31f8](https://github.com/bircni/git-statuses/commit/a6d31f82688ac91b2850aab65094b213fef792fd)) - Nicolas
+
+### Build
+
+- **(deps)** update dependencies - ([c2a9cc5](https://github.com/bircni/git-statuses/commit/c2a9cc59decb2b6bff82851dd3f9eaf5950792eb)) - Nicolas
+
 ## [0.8.0](https://github.com/bircni/git-statuses/compare/0.7.0..0.8.0) - 2025-12-31
 
 ### Features
