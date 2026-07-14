@@ -51,7 +51,7 @@ Arguments:
   [DIR]  Directory to scan [default: .]
 
 Options:
-  -d, --depth <DEPTH>        Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned. If set to -1, all subdirectories are scanned. (this may take a while) [default: 1]
+  -d, --depth <DEPTH>        Recursively scan all subdirectories to the given depth. If set to 1, only the current directory is scanned. If set to a negative value, all subdirectories are scanned. (this may take a while) [default: 1]
   -r, --remote               Show remote URL
   -c, --condensed            Use a condensed layout
   -s, --summary              Show a summary of the scan

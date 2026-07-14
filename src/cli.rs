@@ -25,8 +25,8 @@ pub struct Args {
     pub dir: PathBuf,
     /// Recursively scan all subdirectories to the given depth.
     /// If set to 1, only the current directory is scanned.
-    /// If set to -1, all subdirectories are scanned. (this may take a while)
-    #[arg(short, long, default_value = "1")]
+    /// If set to a negative value, all subdirectories are scanned. (this may take a while)
+    #[arg(short, long, default_value = "1", allow_negative_numbers = true)]
     pub depth: i32,
     /// Show remote URL
     #[arg(short = 'r', long)]
@@ -82,15 +82,13 @@ impl Args {
         reason = "We check i32 to be non-negative, so casting to usize is safe"
     )]
     pub fn find_repositories(&self) -> (Vec<RepoInfo>, Vec<String>) {
-        let min_depth = 0;
         let walker = {
-            let mut walk = WalkDir::new(&self.dir)
-                .min_depth(min_depth)
-                .follow_links(false);
+            let mut walk = WalkDir::new(&self.dir).min_depth(0).follow_links(false);
 
-            if self.depth != -1 && self.depth >= 0 {
-                let max_depth = if self.depth > 0 { self.depth } else { 1 };
-                walk = walk.max_depth(max_depth as usize);
+            // Any negative depth means "no limit"; `-1` is just the documented spelling.
+            // A depth of 0 would find nothing at all, so it is treated like 1.
+            if self.depth >= 0 {
+                walk = walk.max_depth(self.depth.max(1) as usize);
             }
 
             walk.into_iter().filter_map(Result::ok).collect::<Vec<_>>()

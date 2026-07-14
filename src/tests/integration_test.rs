@@ -676,3 +676,48 @@ fn test_integration_scanning_a_repository_directly_shows_its_name() {
         repo_dir.canonicalize().unwrap()
     );
 }
+
+/// `-1` is the documented spelling of "no limit", but the guard let *any* negative value
+/// through to the same unlimited branch. Rather than have `--depth -5` mean something
+/// different from what the help text says, every negative depth is unlimited, and a depth
+/// of 0 (which would otherwise find nothing) behaves like 1.
+#[test]
+fn test_integration_depth_edge_values() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let level1 = temp_dir.path().join("level1");
+    let level2 = level1.join("level2");
+    fs::create_dir_all(&level2).unwrap();
+
+    create_git_repo_with_commit(temp_dir.path(), "root-repo");
+    create_git_repo_with_commit(&level1, "level1-repo");
+    create_git_repo_with_commit(&level2, "level2-repo");
+
+    let scan = |depth: i32| {
+        let args = Args {
+            dir: temp_dir.path().to_path_buf(),
+            depth,
+            ..Default::default()
+        };
+        let (repos, _) = args.find_repositories();
+        repos.len()
+    };
+
+    // Depth 0 finds nothing without the clamp; it must behave like depth 1.
+    assert_eq!(scan(0), 1, "depth 0 must behave like depth 1");
+    assert_eq!(scan(1), 1);
+    assert_eq!(scan(3), 3);
+
+    // Every negative depth is unlimited, not just -1.
+    assert_eq!(scan(-1), 3, "-1 must scan all subdirectories");
+    assert_eq!(
+        scan(-5),
+        3,
+        "any negative depth must scan all subdirectories"
+    );
+    assert_eq!(
+        scan(i32::MIN),
+        3,
+        "i32::MIN must not overflow the depth cast"
+    );
+}
