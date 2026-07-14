@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.8.2](https://github.com/bircni/git-statuses/compare/0.8.1..0.8.2) - 2026-07-14
+
+### Bug Fixes
+
+- **(cli)** return a deterministic order from find_repositories - ([3187810](https://github.com/bircni/git-statuses/commit/3187810e342213679b7b4e66685a296ede021cdf)) - bircni
+- **(cli)** treat every negative depth as unlimited - ([6a490df](https://github.com/bircni/git-statuses/commit/6a490dfc73dd5b37856827dcc59d2d00bb9f7efe)) - bircni
+- **(cli)** prune git directories from the scan instead of substring matching - ([575a100](https://github.com/bircni/git-statuses/commit/575a10044fe1f305cd4d75467f4b4a04a636dbfb)) - bircni
+- **(gitinfo)** make fetch and fast-forward best-effort and report post-merge state - ([11e0b28](https://github.com/bircni/git-statuses/commit/11e0b28b6df7004b9e98947c9122d379889bd5c8)) - bircni
+- **(gitinfo)** parse the repository name out of the remote URL correctly - ([7823fc5](https://github.com/bircni/git-statuses/commit/7823fc5a271be71711adb6f26219f2b7bc785031)) - bircni
+- **(gitinfo)** show the directory name when the scan root is the repository itself - ([4d9b0b8](https://github.com/bircni/git-statuses/commit/4d9b0b8b5903247b5e0e8c4de2de0f14edfeb446)) - bircni
+- **(gitinfo)** count typechanged files as changes - ([5235a7f](https://github.com/bircni/git-statuses/commit/5235a7fb99220c11b4434ccf433c0124f672bf76)) - bircni
+- **(printer)** apply --non-clean to the JSON output as well - ([352c538](https://github.com/bircni/git-statuses/commit/352c538bc99902d8e87ef883df2b522535a01843)) - bircni
+
+### Continuous Integration
+
+- ship a native arm64 macOS binary ([#53](https://github.com/bircni/git-statuses/issues/53)) - ([01f8e4a](https://github.com/bircni/git-statuses/commit/01f8e4aafa1d0e71916470eddd87e1df276b373e)) - bircni
+
+### Tests
+
+- cover the entry point and raise the coverage gate to 95% - ([1d384c7](https://github.com/bircni/git-statuses/commit/1d384c7515f8bee3b8704b880487a2696daf129d)) - bircni
+
+### Build
+
+- **(deps)** update dependencies ([#52](https://github.com/bircni/git-statuses/issues/52)) - ([e10fefe](https://github.com/bircni/git-statuses/commit/e10fefe02f1806971b03b67b73c54010b86e52c3)) - bircni
+
 ## [0.8.1](https://github.com/bircni/git-statuses/compare/0.8.0..0.8.1) - 2026-04-11
 
 ### Tests
