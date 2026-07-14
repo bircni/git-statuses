@@ -770,3 +770,108 @@ fn test_integration_unlimited_depth_ignores_git_internals() {
         );
     }
 }
+
+/// The `--subdir` flag exists for layouts where the checkout lives one level below the
+/// project directory (`repo-name/checkout`). The repository must be picked up through the
+/// subdirectory, at a depth where it would not be found otherwise.
+#[test]
+fn test_integration_subdir_finds_repo_below_the_scanned_level() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // temp/project/checkout/.git - `project` itself is not a repository.
+    let project_dir = temp_dir.path().join("project");
+    fs::create_dir_all(&project_dir).unwrap();
+    create_git_repo_with_commit(&project_dir, "checkout");
+
+    // Depth 1 only reaches `project`, so without --subdir there is nothing to find.
+    let without_subdir = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+    let (repos, failed) = without_subdir.find_repositories();
+    assert_eq!(
+        repos.len(),
+        0,
+        "the checkout is a level below the scan depth"
+    );
+    assert_eq!(failed.len(), 0);
+
+    // With --subdir, `project/checkout` is inspected and found.
+    let with_subdir = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        subdir: Some("checkout".to_owned()),
+        ..Default::default()
+    };
+    let (repos, failed) = with_subdir.find_repositories();
+    assert_eq!(failed.len(), 0);
+    assert_eq!(repos.len(), 1, "--subdir must find the nested checkout");
+    assert_eq!(repos[0].repo_path, "project/checkout");
+
+    // A subdir that does not exist anywhere must simply yield nothing.
+    let missing_subdir = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        subdir: Some("does-not-exist".to_owned()),
+        ..Default::default()
+    };
+    let (repos, failed) = missing_subdir.find_repositories();
+    assert_eq!(repos.len(), 0);
+    assert_eq!(failed.len(), 0);
+}
+
+/// A clone that is in sync with its remote is Clean; committing locally without pushing
+/// turns it into Unpushed and marks it as having unpushed work.
+#[test]
+fn test_integration_clean_and_unpushed_against_a_remote() {
+    let remote_dir = TempDir::new().unwrap();
+    let local_dir = TempDir::new().unwrap();
+
+    let remote_path = remote_dir.path().join("origin-repo");
+    create_git_repo_with_commit(remote_dir.path(), "origin-repo");
+
+    let clone_path = local_dir.path().join("clone");
+    let clone = Repository::clone(&remote_path.to_string_lossy(), &clone_path).unwrap();
+    let mut config = clone.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
+    drop(config);
+
+    let args = Args {
+        dir: local_dir.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+
+    // A fresh clone tracks its remote and matches it exactly.
+    let (repos, _) = args.find_repositories();
+    assert_eq!(repos.len(), 1);
+    assert_eq!(repos[0].status, crate::gitinfo::status::Status::Clean);
+    assert!(!repos[0].has_unpushed);
+    assert!(!repos[0].is_local_only, "a clone has an upstream");
+    assert_eq!(repos[0].ahead, 0);
+
+    // Commit locally without pushing.
+    fs::write(clone_path.join("local.txt"), "local work").unwrap();
+    let mut index = clone.index().unwrap();
+    index.add_path(Path::new("local.txt")).unwrap();
+    index.write().unwrap();
+    let tree = clone.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = clone.signature().unwrap();
+    let parent = clone.head().unwrap().peel_to_commit().unwrap();
+    clone
+        .commit(Some("HEAD"), &sig, &sig, "local commit", &tree, &[&parent])
+        .unwrap();
+
+    let (repos, _) = args.find_repositories();
+    assert_eq!(repos.len(), 1);
+    assert_eq!(
+        repos[0].status,
+        crate::gitinfo::status::Status::Unpushed,
+        "a committed but unpushed change must be reported as Unpushed"
+    );
+    assert!(repos[0].has_unpushed);
+    assert_eq!(repos[0].ahead, 1);
+    assert_eq!(repos[0].behind, 0);
+}

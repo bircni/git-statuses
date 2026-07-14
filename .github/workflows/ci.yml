@@ -120,4 +120,4 @@ jobs:
         uses: taiki-e/install-action@cargo-tarpaulin
 
       - name: Run coverage check
-        run: cargo tarpaulin --workspace --all-features --fail-under 90 --out Xml --out Stdout
+        run: cargo tarpaulin --workspace --all-features --fail-under 95 --out Xml --out Stdout

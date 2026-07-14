@@ -737,3 +737,135 @@ fn test_ignored_files_do_not_make_a_repository_dirty() {
         "an ignored file is not a change"
     );
 }
+
+/// Commits an initial commit so the repository has a HEAD to reason about.
+fn commit_initial(tmp: &tempfile::TempDir, repo: &Repository) {
+    fs::write(tmp.path().join("file.txt"), "content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+        .unwrap();
+}
+
+/// git records an in-progress operation with marker files inside the git directory, and
+/// each one maps to a distinct status. These are the states a user most wants to be warned
+/// about, so every arm must map to the status it claims.
+#[test]
+fn test_status_reflects_in_progress_git_operations() {
+    // (marker to create, is it a directory, expected status)
+    let cases: &[(&str, bool, Status)] = &[
+        ("MERGE_HEAD", false, Status::Merge),
+        ("REVERT_HEAD", false, Status::Revert),
+        ("CHERRY_PICK_HEAD", false, Status::CherryPick),
+        ("BISECT_LOG", false, Status::Bisect),
+        ("rebase-merge", true, Status::Rebase),
+        ("rebase-merge/interactive", false, Status::Rebase),
+        ("rebase-apply/rebasing", false, Status::Rebase),
+        // An in-progress `git am` is not something this tool can classify further.
+        ("rebase-apply/applying", false, Status::Unknown),
+        ("rebase-apply", true, Status::Unknown),
+    ];
+
+    for (marker, is_dir, expected) in cases {
+        let (tmp, repo) = init_temp_repo();
+        commit_initial(&tmp, &repo);
+        assert_ne!(
+            Status::new(&repo),
+            *expected,
+            "`{marker}` must not already be the status before the marker exists"
+        );
+
+        let path = tmp.path().join(".git").join(marker);
+        if *is_dir {
+            fs::create_dir_all(&path).unwrap();
+        } else {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(&path, "1234567890abcdef1234567890abcdef12345678\n").unwrap();
+        }
+
+        assert_eq!(
+            Status::new(&repo),
+            *expected,
+            "`{marker}` must be reported as {expected}"
+        );
+    }
+}
+
+/// A sequencer todo file turns a revert or cherry-pick into its *Sequence* variant, which
+/// must still be reported as the same user-visible status.
+#[test]
+fn test_status_reflects_sequencer_operations() {
+    for (marker, expected) in [
+        ("REVERT_HEAD", Status::Revert),
+        ("CHERRY_PICK_HEAD", Status::CherryPick),
+    ] {
+        let (tmp, repo) = init_temp_repo();
+        commit_initial(&tmp, &repo);
+
+        let git_dir = tmp.path().join(".git");
+        fs::write(
+            git_dir.join(marker),
+            "1234567890abcdef1234567890abcdef12345678\n",
+        )
+        .unwrap();
+        fs::create_dir_all(git_dir.join("sequencer")).unwrap();
+        fs::write(git_dir.join("sequencer/todo"), "pick 1234567\n").unwrap();
+
+        assert_eq!(
+            Status::new(&repo),
+            expected,
+            "a sequenced `{marker}` must be reported as {expected}"
+        );
+    }
+}
+
+/// The path reported for a bare repository, which has no working directory to fall back to.
+#[test]
+fn test_get_repo_path_for_bare_repository() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bare_path = tmp.path().join("bare.git");
+    let repo = Repository::init_bare(&bare_path).unwrap();
+
+    assert!(repo.workdir().is_none(), "a bare repo has no working dir");
+    let info = RepoInfo::new(
+        &mut Repository::open(&bare_path).unwrap(),
+        "bare",
+        false,
+        false,
+        false,
+        tmp.path(),
+    )
+    .unwrap();
+
+    // `Path::ends_with` compares whole components, so the `.git` suffix that is stripped
+    // from a normal repository's git directory must not eat the `bare.git` name here.
+    assert_eq!(
+        info.path.canonicalize().unwrap(),
+        bare_path.canonicalize().unwrap()
+    );
+    assert_eq!(info.repo_path, "bare.git");
+}
+
+/// A bare repository does not have to be named `<name>.git`. Its git directory then has no
+/// `.git` suffix to strip and is used as-is.
+#[test]
+fn test_get_repo_path_for_bare_repository_without_git_suffix() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bare_path = tmp.path().join("plain-bare");
+    Repository::init_bare(&bare_path).unwrap();
+
+    let mut repo = Repository::open(&bare_path).unwrap();
+    let info = RepoInfo::new(&mut repo, "plain-bare", false, false, false, tmp.path()).unwrap();
+
+    assert_eq!(
+        info.path.canonicalize().unwrap(),
+        bare_path.canonicalize().unwrap()
+    );
+    assert_eq!(info.repo_path, "plain-bare");
+}

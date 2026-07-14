@@ -1,7 +1,8 @@
-use std::io;
+use std::io::{self, Write};
 
 use anyhow::Result;
 use clap::{CommandFactory as _, Parser as _};
+use clap_complete::Shell;
 
 use crate::cli::Args;
 
@@ -17,17 +18,29 @@ mod util;
 fn main() -> Result<()> {
     util::initialize_logger()?;
 
-    let args = Args::parse();
+    run(&Args::parse(), &mut io::stdout());
 
+    Ok(())
+}
+
+/// Runs the tool for the given arguments.
+///
+/// Split out of `main` so that it can be driven from tests without spawning a process.
+/// Repositories that cannot be read are collected into the failed list rather than
+/// aborting the scan, so this cannot fail.
+///
+/// # Arguments
+/// * `args` - The parsed CLI arguments.
+/// * `out` - Where to write generated shell completions to.
+fn run(args: &Args, out: &mut impl Write) {
     if let Some(shell) = args.completions {
-        let mut cmd = Args::command();
-        clap_complete::generate(shell, &mut cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
-        return Ok(());
+        completions(shell, out);
+        return;
     }
 
     if args.legend {
         printer::legend(args.condensed);
-        return Ok(());
+        return;
     }
 
     let (repos, failed_repos) = args.find_repositories();
@@ -35,15 +48,27 @@ fn main() -> Result<()> {
 
     if args.json {
         printer::json_output(&displayed, &failed_repos);
-        return Ok(());
+        return;
     }
 
-    printer::repositories_table(&displayed, &args);
+    printer::repositories_table(&displayed, args);
     printer::failed_summary(&failed_repos);
     if args.summary {
         // The summary describes the whole scan, not just the filtered selection.
         printer::summary(&repos, failed_repos.len());
     }
+}
 
-    Ok(())
+/// Writes the shell completion script for `shell`.
+///
+/// # Arguments
+/// * `shell` - The shell to generate completions for.
+/// * `out` - Where to write the completion script to.
+fn completions(shell: Shell, out: &mut impl Write) {
+    clap_complete::generate(
+        shell,
+        &mut Args::command(),
+        env!("CARGO_PKG_NAME"),
+        &mut *out,
+    );
 }
