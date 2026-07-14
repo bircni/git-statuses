@@ -50,6 +50,28 @@ fn get_repo_path(repo: &Repository) -> path::PathBuf {
     }
 }
 
+/// Extracts the repository name from a remote URL.
+///
+/// Handles the shapes git accepts: `https://host/user/repo.git`, the SCP-like
+/// `git@host:user/repo.git` (and its slash-less `git@host:repo.git` form), local paths,
+/// and any of those with a trailing slash.
+///
+/// # Arguments
+/// * `url` - The remote URL to parse.
+/// # Returns
+/// The repository name, or `None` if the URL carries no usable name.
+pub fn repo_name_from_url(url: &str) -> Option<String> {
+    // A trailing slash would otherwise make the last segment empty.
+    let url = url.trim_end_matches('/');
+    // Both separators matter: in `git@host:repo.git` the name is not preceded by a slash.
+    let name = url.rsplit(['/', ':', '\\']).next()?;
+    // `strip_suffix` rather than `trim_end_matches`, which would strip a repeated suffix
+    // and turn `repo.git.git` into `repo`.
+    let name = name.strip_suffix(".git").unwrap_or(name);
+
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
 /// Gets the name of the repository from the remote URL.
 /// If the remote URL is not available, it returns `None`.
 /// # Arguments
@@ -58,19 +80,10 @@ fn get_repo_path(repo: &Repository) -> path::PathBuf {
 /// An `Option<String>` containing the repository name if found, or `None` if not.
 fn get_repo_name(repo: &Repository) -> Option<String> {
     let remote_name = get_remote_name(repo)?;
-    if let Ok(remote) = repo.find_remote(&remote_name)
-        && let Ok(url) = remote.url()
-    {
-        return Some(
-            url.trim_end_matches(".git")
-                .split('/')
-                .next_back()
-                .unwrap_or("unknown")
-                .to_owned(),
-        );
-    }
+    let remote = repo.find_remote(&remote_name).ok()?;
+    let url = remote.url().ok()?;
 
-    None
+    repo_name_from_url(url)
 }
 
 /// Returns the current branch name or a fallback if not available.
