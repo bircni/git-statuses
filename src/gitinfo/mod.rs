@@ -25,7 +25,7 @@ fn get_remote_name(repo: &Repository) -> Option<String> {
     // Otherwise, get the first available remote
     repo.remotes()
         .ok()
-        .and_then(|remotes| remotes.get(0).map(ToOwned::to_owned))
+        .and_then(|remotes| remotes.get(0).ok().flatten().map(ToOwned::to_owned))
 }
 
 /// Gets the path of the repository.
@@ -59,17 +59,15 @@ fn get_repo_path(repo: &Repository) -> path::PathBuf {
 fn get_repo_name(repo: &Repository) -> Option<String> {
     let remote_name = get_remote_name(repo)?;
     if let Ok(remote) = repo.find_remote(&remote_name)
-        && let Some(url) = remote.url()
+        && let Ok(url) = remote.url()
     {
-        {
-            return Some(
-                url.trim_end_matches(".git")
-                    .split('/')
-                    .next_back()
-                    .unwrap_or("unknown")
-                    .to_owned(),
-            );
-        }
+        return Some(
+            url.trim_end_matches(".git")
+                .split('/')
+                .next_back()
+                .unwrap_or("unknown")
+                .to_owned(),
+        );
     }
 
     None
@@ -85,20 +83,20 @@ fn get_repo_name(repo: &Repository) -> Option<String> {
 pub fn get_branch_name(repo: &Repository) -> String {
     if let Ok(head) = repo.head() {
         if head.is_branch() {
-            if let Some(name) = head.shorthand() {
+            if let Ok(name) = head.shorthand() {
                 return name.to_owned();
             }
         } else {
             // Detached HEAD
             return "N/A".to_owned();
         }
-        if let Some(target) = head.symbolic_target()
+        if let Ok(Some(target)) = head.symbolic_target()
             && let Some(branch) = target.rsplit('/').next()
         {
             return format!("{branch} (no commits)");
         }
     } else if let Ok(headref) = repo.find_reference("HEAD")
-        && let Some(sym) = headref.symbolic_target()
+        && let Ok(Some(sym)) = headref.symbolic_target()
         && let Some(branch) = sym.rsplit('/').next()
     {
         return format!("{branch} (no commits)");
@@ -116,10 +114,10 @@ pub fn get_ahead_behind_and_local_status(repo: &Repository) -> (usize, usize, bo
     let Ok(head) = repo.head() else {
         return (0, 0, true);
     };
-    let branch = head.shorthand().map_or_else(
-        || None,
-        |name| repo.find_branch(name, git2::BranchType::Local).ok(),
-    );
+    let branch = head
+        .shorthand()
+        .ok()
+        .and_then(|name| repo.find_branch(name, git2::BranchType::Local).ok());
     if let Some(branch) = branch
         && let Ok(upstream) = branch.upstream()
     {
@@ -154,23 +152,21 @@ pub fn get_total_commits(repo: &Repository) -> anyhow::Result<usize> {
 pub fn get_changed_count(repo: &Repository) -> usize {
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
-    repo.statuses(Some(&mut opts))
-        .map(|statuses| {
-            statuses
-                .iter()
-                .filter(|e| {
-                    let s = e.status();
-                    s.is_wt_modified()
-                        || s.is_index_modified()
-                        || s.is_wt_deleted()
-                        || s.is_index_deleted()
-                        || s.is_conflicted()
-                        || s.is_wt_new()
-                        || s.is_index_new()
-                })
-                .count()
-        })
-        .unwrap_or(0)
+    repo.statuses(Some(&mut opts)).map_or(0, |statuses| {
+        statuses
+            .iter()
+            .filter(|e| {
+                let s = e.status();
+                s.is_wt_modified()
+                    || s.is_index_modified()
+                    || s.is_wt_deleted()
+                    || s.is_index_deleted()
+                    || s.is_conflicted()
+                    || s.is_wt_new()
+                    || s.is_index_new()
+            })
+            .count()
+    })
 }
 
 /// Returns the remote URL for the first available remote (preferring "origin"), if available.
@@ -178,7 +174,7 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
     let remote_name = get_remote_name(repo)?;
     repo.find_remote(&remote_name)
         .ok()
-        .and_then(|r| r.url().map(ToOwned::to_owned))
+        .and_then(|r| r.url().map(ToOwned::to_owned).ok())
 }
 
 /// Executes a fetch operation for the first available remote (preferring "origin") to update upstream information.
@@ -241,7 +237,7 @@ pub fn get_branch_push_status(repo: &Repository) -> Status {
         return Status::Detached;
     }
 
-    let Some(local_branch) = head.shorthand() else {
+    let Ok(local_branch) = head.shorthand() else {
         return Status::Unknown;
     };
 
