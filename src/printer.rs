@@ -11,12 +11,11 @@ use crate::{
 /// # Arguments
 /// * `repos` - List of repositories to display.
 /// * `args` - CLI arguments controlling the output format.
-pub fn repositories_table(repos: &mut [RepoInfo], args: &Args) {
+pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
     if repos.is_empty() {
         log::info!("No repositories found.");
         return;
     }
-    repos.sort_by_key(|r| r.repo_path.to_ascii_lowercase());
     let repos_iter: Box<dyn Iterator<Item = &RepoInfo>> = if args.non_clean {
         Box::new(repos.iter().filter(|r| r.status != Status::Clean))
     } else {

@@ -30,14 +30,14 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (mut repos, failed_repos) = args.find_repositories();
+    let (repos, failed_repos) = args.find_repositories();
 
     if args.json {
         printer::json_output(&repos, &failed_repos);
         return Ok(());
     }
 
-    printer::repositories_table(&mut repos, &args);
+    printer::repositories_table(&repos, &args);
     printer::failed_summary(&failed_repos);
     if args.summary {
         printer::summary(&repos, failed_repos.len());

@@ -50,8 +50,8 @@ fn test_print_repositories_and_summary() {
         summary: true,
         ..Default::default()
     };
-    let mut repos = vec![repo];
-    printer::repositories_table(&mut repos, &args);
+    let repos = vec![repo];
+    printer::repositories_table(&repos, &args);
     printer::summary(&repos, 0);
 }
 
@@ -94,8 +94,8 @@ fn test_print_repositories_with_remote() {
         remote: true,
         ..Default::default()
     };
-    let mut repos = vec![repo];
-    printer::repositories_table(&mut repos, &args);
+    let repos = vec![repo];
+    printer::repositories_table(&repos, &args);
 }
 
 // New tests for GitPathExt trait

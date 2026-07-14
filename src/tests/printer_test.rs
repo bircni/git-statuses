@@ -7,19 +7,19 @@ use crate::printer::{failed_summary, json_output, legend, repositories_table, su
 
 #[test]
 fn test_repositories_table_empty() {
-    let mut repos: Vec<RepoInfo> = Vec::new();
+    let repos: Vec<RepoInfo> = Vec::new();
     let args = Args {
         dir: ".".into(),
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Assert that no panic occurs and no output is generated
 }
 
 #[test]
 fn test_repositories_table_with_data() {
-    let mut repos = vec![RepoInfo {
+    let repos = vec![RepoInfo {
         name: "repo1".to_owned(),
         branch: "main".to_owned(),
         ahead: 1,
@@ -41,7 +41,7 @@ fn test_repositories_table_with_data() {
         remote: true,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Assert that the table is printed correctly
 }
 
@@ -53,7 +53,7 @@ fn test_print_legend() {
 
 #[test]
 fn test_repositories_table_with_stashes_and_local_only() {
-    let mut repos = vec![
+    let repos = vec![
         RepoInfo {
             name: "repo-with-stash".to_owned(),
             branch: "main".to_owned(),
@@ -92,13 +92,13 @@ fn test_repositories_table_with_stashes_and_local_only() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Assert that stash info and local-only status are displayed correctly
 }
 
 #[test]
 fn test_repositories_table_with_path_option() {
-    let mut repos = vec![RepoInfo {
+    let repos = vec![RepoInfo {
         name: "test-repo".to_owned(),
         branch: "main".to_owned(),
         ahead: 0,
@@ -120,13 +120,13 @@ fn test_repositories_table_with_path_option() {
         path: true,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Should include path column
 }
 
 #[test]
 fn test_repositories_table_condensed_layout() {
-    let mut repos = vec![RepoInfo {
+    let repos = vec![RepoInfo {
         name: "repo".to_owned(),
         branch: "develop".to_owned(),
         ahead: 2,
@@ -150,13 +150,13 @@ fn test_repositories_table_condensed_layout() {
         path: true,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Should use condensed table format
 }
 
 #[test]
 fn test_repositories_table_non_clean_filter() {
-    let mut repos = vec![
+    let repos = vec![
         RepoInfo {
             name: "clean-repo".to_owned(),
             branch: "main".to_owned(),
@@ -196,13 +196,15 @@ fn test_repositories_table_non_clean_filter() {
         non_clean: true,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Should only display dirty repo
 }
 
+/// Sorting is the responsibility of `Args::find_repositories`, which hands the printer an
+/// already ordered slice. The printer must render the rows in exactly that order.
 #[test]
-fn test_repositories_table_sorting() {
-    let mut repos = vec![
+fn test_repositories_table_renders_rows_in_given_order() {
+    let repos = vec![
         RepoInfo {
             name: "zebra-repo".to_owned(),
             branch: "main".to_owned(),
@@ -257,16 +259,16 @@ fn test_repositories_table_sorting() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
-    // Should be sorted alphabetically (case-insensitive)
-    assert_eq!(repos[0].name, "Alpha-Repo");
-    assert_eq!(repos[1].name, "beta-repo");
-    assert_eq!(repos[2].name, "zebra-repo");
+    repositories_table(&repos, &args);
+    // The printer must not reorder what it was given.
+    assert_eq!(repos[0].name, "zebra-repo");
+    assert_eq!(repos[1].name, "Alpha-Repo");
+    assert_eq!(repos[2].name, "beta-repo");
 }
 
 #[test]
 fn test_repositories_table_various_statuses() {
-    let mut repos = vec![
+    let repos = vec![
         RepoInfo {
             name: "rebase-repo".to_owned(),
             branch: "feature".to_owned(),
@@ -321,7 +323,7 @@ fn test_repositories_table_various_statuses() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
     // Should display all different status types with appropriate colors
 }
 
@@ -445,7 +447,7 @@ fn test_summary_edge_cases() {
 
 #[test]
 fn test_repositories_table_marks_worktree_rows() {
-    let mut repos = vec![RepoInfo {
+    let repos = vec![RepoInfo {
         name: "worktree-repo".to_owned(),
         branch: "feature".to_owned(),
         ahead: 0,
@@ -466,7 +468,7 @@ fn test_repositories_table_marks_worktree_rows() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&mut repos, &args);
+    repositories_table(&repos, &args);
 }
 
 #[test]
