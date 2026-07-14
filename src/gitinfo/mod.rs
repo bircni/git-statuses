@@ -10,6 +10,23 @@ use crate::gitinfo::status::Status;
 pub mod repoinfo;
 pub mod status;
 
+/// The status bits that make a working directory count as changed.
+///
+/// Shared by the clean/dirty decision and by the change counter shown next to it, so the
+/// two can never disagree about what a change is. `TYPECHANGE` matters for files that were
+/// swapped for a symlink (or vice versa), `RENAMED` for renames once git detects them.
+pub const CHANGED: git2::Status = git2::Status::WT_NEW
+    .union(git2::Status::WT_MODIFIED)
+    .union(git2::Status::WT_DELETED)
+    .union(git2::Status::WT_TYPECHANGE)
+    .union(git2::Status::WT_RENAMED)
+    .union(git2::Status::INDEX_NEW)
+    .union(git2::Status::INDEX_MODIFIED)
+    .union(git2::Status::INDEX_DELETED)
+    .union(git2::Status::INDEX_TYPECHANGE)
+    .union(git2::Status::INDEX_RENAMED)
+    .union(git2::Status::CONFLICTED);
+
 /// Gets the first available remote name, preferring "origin".
 /// If "origin" doesn't exist, it returns the first available remote.
 /// # Arguments
@@ -164,20 +181,11 @@ pub fn get_total_commits(repo: &Repository) -> anyhow::Result<usize> {
 /// Returns the number of changed (unstaged, staged or untracked) files.
 pub fn get_changed_count(repo: &Repository) -> usize {
     let mut opts = StatusOptions::new();
-    opts.include_untracked(true);
+    opts.include_untracked(true).include_ignored(false);
     repo.statuses(Some(&mut opts)).map_or(0, |statuses| {
         statuses
             .iter()
-            .filter(|e| {
-                let s = e.status();
-                s.is_wt_modified()
-                    || s.is_index_modified()
-                    || s.is_wt_deleted()
-                    || s.is_index_deleted()
-                    || s.is_conflicted()
-                    || s.is_wt_new()
-                    || s.is_index_new()
-            })
+            .filter(|e| !e.status().is_ignored() && e.status().intersects(CHANGED))
             .count()
     })
 }

@@ -638,3 +638,102 @@ fn test_repo_info_name_falls_back_to_directory_name() {
 
     assert_eq!(info.name, "fallback-name");
 }
+
+/// Replacing a tracked file with a symlink is a `TYPECHANGE`. `git status` reports it as a
+/// modification, but neither the clean/dirty check nor the change counter looked at that
+/// bit, so such a repository was reported as Clean with zero changes.
+#[cfg(unix)]
+#[test]
+fn test_typechange_is_reported_as_dirty() {
+    let (tmp, repo) = init_temp_repo();
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+        .unwrap();
+    drop(tree);
+    drop(index);
+
+    // Replace the regular file with a symlink pointing elsewhere.
+    fs::remove_file(&path).unwrap();
+    std::os::unix::fs::symlink("/etc/hostname", &path).unwrap();
+
+    assert_eq!(
+        gitinfo::get_changed_count(&repo),
+        1,
+        "a typechange is a change"
+    );
+    assert_eq!(
+        Status::new(&repo),
+        Status::Dirty(1),
+        "a repository with a typechange is not clean"
+    );
+}
+
+/// The clean/dirty decision and the count displayed next to it are two separate scans of
+/// the same working directory. They must agree: a repository reported as Dirty(n) must have
+/// n changed files, and one reported as anything else must have none.
+#[test]
+fn test_status_and_changed_count_agree() {
+    let (tmp, repo) = init_temp_repo();
+    let path = tmp.path().join("file.txt");
+    fs::write(&path, "content").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("file.txt")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+        .unwrap();
+    drop(tree);
+    drop(index);
+
+    // A committed working directory has no changes at all.
+    assert_eq!(gitinfo::get_changed_count(&repo), 0);
+    assert_ne!(Status::new(&repo), Status::Dirty(0));
+
+    // Each new kind of change must move both the status and the count in lockstep.
+    fs::write(tmp.path().join("untracked.txt"), "new").unwrap();
+    assert_eq!(Status::new(&repo), Status::Dirty(1));
+
+    fs::write(&path, "modified").unwrap();
+    assert_eq!(Status::new(&repo), Status::Dirty(2));
+
+    assert_eq!(
+        Status::new(&repo),
+        Status::Dirty(gitinfo::get_changed_count(&repo)),
+        "the reported count must be the same one the dirty check used"
+    );
+}
+
+/// Ignored files are not changes and must not make a repository dirty.
+#[test]
+fn test_ignored_files_do_not_make_a_repository_dirty() {
+    let (tmp, repo) = init_temp_repo();
+    fs::write(tmp.path().join(".gitignore"), "ignored.txt\n").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new(".gitignore")).unwrap();
+    index.write().unwrap();
+    let oid = index.write_tree().unwrap();
+    let sig = repo.signature().unwrap();
+    let tree = repo.find_tree(oid).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+        .unwrap();
+    drop(tree);
+    drop(index);
+
+    fs::write(tmp.path().join("ignored.txt"), "please ignore me").unwrap();
+
+    assert_eq!(gitinfo::get_changed_count(&repo), 0);
+    assert_ne!(
+        Status::new(&repo),
+        Status::Dirty(0),
+        "an ignored file is not a change"
+    );
+}
