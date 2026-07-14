@@ -66,23 +66,15 @@ impl Status {
 
         repo.statuses(Some(&mut opts))
             .map_or(Self::Unknown, |statuses| {
-                if statuses.iter().all(|e| {
-                    e.status().is_ignored()
-                        || !e.status().intersects(
-                            git2::Status::WT_NEW
-                                | git2::Status::WT_MODIFIED
-                                | git2::Status::WT_DELETED
-                                | git2::Status::INDEX_NEW
-                                | git2::Status::INDEX_MODIFIED
-                                | git2::Status::INDEX_DELETED
-                                | git2::Status::CONFLICTED,
-                        )
-                }) {
-                    // Clean working directory – check branch push state
-                    gitinfo::get_branch_push_status(repo)
-                } else {
+                if statuses
+                    .iter()
+                    .any(|e| !e.status().is_ignored() && e.status().intersects(gitinfo::CHANGED))
+                {
                     // Dirty working directory – report how many changes
                     Self::Dirty(gitinfo::get_changed_count(repo))
+                } else {
+                    // Clean working directory – check branch push state
+                    gitinfo::get_branch_push_status(repo)
                 }
             })
     }
