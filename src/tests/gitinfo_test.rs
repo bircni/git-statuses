@@ -528,3 +528,113 @@ fn test_get_branch_push_status_no_remote() {
     let status = gitinfo::get_branch_push_status(&repo);
     assert_eq!(status, Status::Unpublished);
 }
+
+#[test]
+fn test_repo_name_from_url_https() {
+    assert_eq!(
+        gitinfo::repo_name_from_url("https://github.com/user/repo.git").as_deref(),
+        Some("repo")
+    );
+    assert_eq!(
+        gitinfo::repo_name_from_url("https://github.com/user/repo").as_deref(),
+        Some("repo")
+    );
+}
+
+/// The SCP-like syntax separates the path with a colon. Splitting on `/` alone left the
+/// whole `git@host:repo` string as the repository name when the path had no slash in it.
+#[test]
+fn test_repo_name_from_url_scp_syntax() {
+    assert_eq!(
+        gitinfo::repo_name_from_url("git@github.com:user/repo.git").as_deref(),
+        Some("repo")
+    );
+    assert_eq!(
+        gitinfo::repo_name_from_url("git@github.com:repo.git").as_deref(),
+        Some("repo")
+    );
+}
+
+/// A trailing slash made the last path segment empty, which surfaced as a nameless
+/// repository in the output.
+#[test]
+fn test_repo_name_from_url_trailing_slash() {
+    assert_eq!(
+        gitinfo::repo_name_from_url("https://github.com/user/repo/").as_deref(),
+        Some("repo")
+    );
+    assert_eq!(
+        gitinfo::repo_name_from_url("https://github.com/user/repo.git/").as_deref(),
+        Some("repo")
+    );
+}
+
+/// `trim_end_matches(".git")` strips *every* trailing occurrence, so a repository actually
+/// called `repo.git` lost part of its name.
+#[test]
+fn test_repo_name_from_url_only_strips_one_git_suffix() {
+    assert_eq!(
+        gitinfo::repo_name_from_url("https://github.com/user/repo.git.git").as_deref(),
+        Some("repo.git")
+    );
+}
+
+#[test]
+fn test_repo_name_from_url_local_path() {
+    assert_eq!(
+        gitinfo::repo_name_from_url("/home/user/projects/repo").as_deref(),
+        Some("repo")
+    );
+    assert_eq!(
+        gitinfo::repo_name_from_url("C:\\projects\\repo.git").as_deref(),
+        Some("repo")
+    );
+}
+
+#[test]
+fn test_repo_name_from_url_without_a_name() {
+    assert_eq!(gitinfo::repo_name_from_url(""), None);
+    assert_eq!(gitinfo::repo_name_from_url("/"), None);
+    assert_eq!(gitinfo::repo_name_from_url(".git"), None);
+}
+
+/// The name shown for a repository comes from its remote. It must survive the round trip
+/// through `git2` for the URL shapes git actually accepts.
+#[test]
+fn test_repo_info_name_from_scp_style_remote() {
+    let (_tmp, mut repo) = init_temp_repo();
+    repo.remote("origin", "git@github.com:bircni/git-statuses.git")
+        .unwrap();
+
+    let info = RepoInfo::new(
+        &mut repo,
+        "fallback-name",
+        false,
+        false,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    )
+    .unwrap();
+
+    assert_eq!(info.name, "git-statuses");
+}
+
+/// A remote whose URL yields no usable name must fall back to the directory name instead
+/// of showing an empty or bogus one.
+#[test]
+fn test_repo_info_name_falls_back_to_directory_name() {
+    let (_tmp, mut repo) = init_temp_repo();
+    repo.remote("origin", "/").unwrap();
+
+    let info = RepoInfo::new(
+        &mut repo,
+        "fallback-name",
+        false,
+        false,
+        false,
+        &PathBuf::from("/path/to/repo"),
+    )
+    .unwrap();
+
+    assert_eq!(info.name, "fallback-name");
+}
