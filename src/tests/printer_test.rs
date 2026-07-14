@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use crate::cli::Args;
 use crate::gitinfo::repoinfo::RepoInfo;
 use crate::gitinfo::status::Status;
-use crate::printer::{failed_summary, json_output, legend, repositories_table, summary};
+use crate::printer::{
+    failed_summary, json_output, json_value, legend, repositories_table, summary,
+};
 
 #[test]
 fn test_repositories_table_empty() {
@@ -196,8 +198,10 @@ fn test_repositories_table_non_clean_filter() {
         non_clean: true,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Should only display dirty repo
+    let displayed = args.filter_repos(&repos);
+    assert_eq!(displayed.len(), 1);
+    assert_eq!(displayed[0].name, "dirty-repo");
+    repositories_table(&displayed, &args);
 }
 
 /// Sorting is the responsibility of `Args::find_repositories`, which hands the printer an
@@ -491,4 +495,108 @@ fn test_json_output_smoke() {
     }];
     let failed = vec!["broken-repo".to_owned()];
     json_output(&repos, &failed);
+
+    let value = json_value(&repos, &failed);
+    assert_eq!(value["repositories"][0]["name"], "json-repo");
+    assert_eq!(value["failed"][0], "broken-repo");
+}
+
+fn repo_named(name: &str, status: Status) -> RepoInfo {
+    RepoInfo {
+        name: name.to_owned(),
+        branch: "main".to_owned(),
+        ahead: 0,
+        behind: 0,
+        commits: 1,
+        status,
+        has_unpushed: false,
+        remote_url: None,
+        path: PathBuf::from("/path/to").join(name),
+        stash_count: 0,
+        is_local_only: false,
+        fast_forwarded: false,
+        repo_path: name.to_owned(),
+        is_worktree: false,
+    }
+}
+
+/// `--non-clean` used to be applied by the table printer only, so `--json --non-clean`
+/// still emitted every clean repository. Both output formats must show the same selection.
+#[test]
+fn test_non_clean_filter_applies_to_json_output() {
+    let repos = vec![
+        repo_named("clean-repo", Status::Clean),
+        repo_named("dirty-repo", Status::Dirty(2)),
+        repo_named("unpushed-repo", Status::Unpushed),
+    ];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        non_clean: true,
+        json: true,
+        ..Default::default()
+    };
+
+    let displayed = args.filter_repos(&repos);
+    let names: Vec<&str> = displayed.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(
+        names,
+        ["dirty-repo", "unpushed-repo"],
+        "clean repositories must be filtered out"
+    );
+
+    let value = json_value(&displayed, &[]);
+    let json_names: Vec<&str> = value["repositories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        json_names,
+        ["dirty-repo", "unpushed-repo"],
+        "JSON output must honour --non-clean"
+    );
+}
+
+/// Without `--non-clean` the filter must be a no-op and must not clone the input.
+#[test]
+fn test_filter_repos_without_non_clean_borrows_everything() {
+    let repos = vec![
+        repo_named("clean-repo", Status::Clean),
+        repo_named("dirty-repo", Status::Dirty(1)),
+    ];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        ..Default::default()
+    };
+
+    let displayed = args.filter_repos(&repos);
+    assert!(
+        matches!(displayed, std::borrow::Cow::Borrowed(_)),
+        "the unfiltered path must not copy the scan result"
+    );
+    assert_eq!(displayed.len(), 2);
+}
+
+/// When `--non-clean` filters everything away, the printer must say so instead of drawing
+/// a table with a header and no rows.
+#[test]
+fn test_non_clean_filter_removing_everything_prints_no_repositories() {
+    let repos = vec![
+        repo_named("clean-a", Status::Clean),
+        repo_named("clean-b", Status::Clean),
+    ];
+    let args = Args {
+        dir: ".".into(),
+        depth: 1,
+        non_clean: true,
+        ..Default::default()
+    };
+
+    let displayed = args.filter_repos(&repos);
+    assert!(displayed.is_empty());
+    // Hits the "No repositories found." branch rather than rendering an empty table.
+    repositories_table(&displayed, &args);
 }

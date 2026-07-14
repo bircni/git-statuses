@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{borrow::Cow, path::PathBuf, sync::Arc};
 
 use clap::Parser;
 use clap_complete::Shell;
@@ -6,7 +6,10 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use walkdir::WalkDir;
 
-use crate::{gitinfo::repoinfo::RepoInfo, util::GitPathExt as _};
+use crate::{
+    gitinfo::{repoinfo::RepoInfo, status::Status},
+    util::GitPathExt as _,
+};
 
 /// Scan the given directory for Git repositories and display their status.
 /// A Repository turns red if it has unpushed changes.
@@ -148,5 +151,26 @@ impl Args {
         repos.sort_by_key(|r| r.repo_path.to_lowercase());
         failed_repos.sort_by_key(|r| r.to_lowercase());
         (repos, failed_repos)
+    }
+
+    /// Applies the output filters (currently only `--non-clean`) to a scan result.
+    ///
+    /// Every output format has to go through this, otherwise the formats disagree about
+    /// which repositories the user asked to see.
+    ///
+    /// # Returns
+    /// The repositories to display. Borrows the input when no filter is active.
+    pub fn filter_repos<'a>(&self, repos: &'a [RepoInfo]) -> Cow<'a, [RepoInfo]> {
+        if self.non_clean {
+            Cow::Owned(
+                repos
+                    .iter()
+                    .filter(|r| r.status != Status::Clean)
+                    .cloned()
+                    .collect(),
+            )
+        } else {
+            Cow::Borrowed(repos)
+        }
     }
 }
