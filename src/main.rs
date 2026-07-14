@@ -31,15 +31,17 @@ fn main() -> Result<()> {
     }
 
     let (repos, failed_repos) = args.find_repositories();
+    let displayed = args.filter_repos(&repos);
 
     if args.json {
-        printer::json_output(&repos, &failed_repos);
+        printer::json_output(&displayed, &failed_repos);
         return Ok(());
     }
 
-    printer::repositories_table(&repos, &args);
+    printer::repositories_table(&displayed, &args);
     printer::failed_summary(&failed_repos);
     if args.summary {
+        // The summary describes the whole scan, not just the filtered selection.
         printer::summary(&repos, failed_repos.len());
     }
 

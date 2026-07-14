@@ -8,6 +8,9 @@ use crate::{
 
 /// Prints the repository status information as a table or list, depending on CLI options.
 ///
+/// Expects the repositories to already be sorted and filtered (see
+/// `Args::find_repositories` and `Args::filter_repos`).
+///
 /// # Arguments
 /// * `repos` - List of repositories to display.
 /// * `args` - CLI arguments controlling the output format.
@@ -16,11 +19,6 @@ pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
         log::info!("No repositories found.");
         return;
     }
-    let repos_iter: Box<dyn Iterator<Item = &RepoInfo>> = if args.non_clean {
-        Box::new(repos.iter().filter(|r| r.status != Status::Clean))
-    } else {
-        Box::new(repos.iter())
-    };
 
     let mut table = Table::new();
     let preset = if args.condensed {
@@ -47,7 +45,7 @@ pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
     }
     table.set_header(header);
 
-    for repo in repos_iter {
+    for repo in repos {
         let display_path = if repo.is_worktree {
             format!("⎇ {}", repo.repo_path)
         } else {
@@ -141,14 +139,23 @@ pub fn failed_summary(failed_repos: &[String]) {
     }
 }
 
+/// Builds the JSON representation of a scan result.
+/// # Arguments
+/// * `repos` - List of repositories to output.
+/// * `failed_repos` - List of repository names that failed to process.
+/// # Returns
+/// The JSON value that `json_output` prints.
+pub fn json_value(repos: &[RepoInfo], failed_repos: &[String]) -> serde_json::Value {
+    serde_json::json!({
+        "repositories": repos,
+        "failed": failed_repos
+    })
+}
+
 /// Prints the repository information in JSON format.
 /// # Arguments
 /// * `repos` - List of repositories to output.
 /// * `failed_repos` - List of repository names that failed to process.
 pub fn json_output(repos: &[RepoInfo], failed_repos: &[String]) {
-    let output = serde_json::json!({
-        "repositories": repos,
-        "failed": failed_repos
-    });
-    println!("{output}");
+    println!("{}", json_value(repos, failed_repos));
 }
