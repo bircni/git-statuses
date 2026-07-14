@@ -53,10 +53,10 @@ impl RepoInfo {
     /// A `RepoInfo` instance containing the repository's status information.
     ///
     /// # Errors
-    /// Returns an error if the repository cannot be opened, or if fetching fails.
-    /// If `fetch` is true, it will attempt to fetch from the "origin"
-    /// remote to update upstream information.
-    /// If fetching fails, it will use that error to return an error.
+    /// Returns an error if the commit history of the repository cannot be walked.
+    ///
+    /// Fetching and fast-forwarding are best-effort: a repository without a remote
+    /// or without an upstream branch is still reported, with a warning logged.
     pub fn new(
         repo: &mut Repository,
         name: &str,
@@ -65,11 +65,22 @@ impl RepoInfo {
         merge: bool,
         dir: &Path,
     ) -> anyhow::Result<Self> {
-        if fetch || merge {
-            // Attempt to fetch from origin, ignoring errors
-            gitinfo::fetch_origin(repo)?;
-        }
         let name = gitinfo::get_repo_name(repo).unwrap_or_else(|| name.to_owned());
+
+        // Fetching and merging must happen before any state is gathered, otherwise the
+        // reported ahead/behind counts, commit count and status describe the pre-merge
+        // repository and contradict the fast-forward marker shown next to them.
+        if (fetch || merge)
+            && let Err(e) = gitinfo::fetch_origin(repo)
+        {
+            log::warn!("Failed to fetch for `{name}`: {e}");
+        }
+        let fast_forwarded = merge
+            && gitinfo::merge_ff(repo).unwrap_or_else(|e| {
+                log::warn!("Failed to fast-forward `{name}`: {e}");
+                false
+            });
+
         let branch = gitinfo::get_branch_name(repo);
         let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(repo);
         let commits = gitinfo::get_total_commits(repo)?;
@@ -91,12 +102,7 @@ impl RepoInfo {
         } else {
             repo_path_relative
         };
-        let fast_forwarded = if merge {
-            // Fast-forward merge
-            gitinfo::merge_ff(repo)?
-        } else {
-            false
-        };
+        let repo_path = repo_path_relative.display().to_string();
         let is_worktree = repo.is_worktree();
 
         Ok(Self {
@@ -112,7 +118,7 @@ impl RepoInfo {
             stash_count,
             is_local_only,
             fast_forwarded,
-            repo_path: repo_path_relative.display().to_string(),
+            repo_path,
             is_worktree,
         })
     }

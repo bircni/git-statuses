@@ -180,10 +180,13 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
 /// Executes a fetch operation for the first available remote (preferring "origin") to update upstream information.
 pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
     let remote_name = get_remote_name(repo).ok_or_else(|| anyhow::anyhow!("No remotes found"))?;
+    // `repo.path()` is the git directory. For a worktree that is
+    // `<main>/.git/worktrees/<name>`, whose parent is not a working directory at all, so
+    // prefer the working directory and only fall back for bare repositories.
     let path = repo
-        .path()
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("No parent directory found"))?;
+        .workdir()
+        .or_else(|| repo.path().parent())
+        .ok_or_else(|| anyhow::anyhow!("No working directory found"))?;
     let output = Command::new("git")
         .arg("fetch")
         .arg(&remote_name)

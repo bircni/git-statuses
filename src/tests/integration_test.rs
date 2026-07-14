@@ -317,14 +317,21 @@ fn test_integration_repository_fast_forward() {
         )
         .unwrap();
 
-    // Test that the clone was fast-forwarded
+    // Test that the clone was fast-forwarded, and that the reported state describes the
+    // repository *after* the merge rather than before it.
     let (repos, failed) = args.find_repositories();
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
-    assert_eq!(repos[0].commits, 1);
-    assert_eq!(repos[0].behind, 1);
     assert!(repos[0].fast_forwarded);
+    assert_eq!(
+        repos[0].commits, 2,
+        "commit count must be gathered after the fast-forward"
+    );
+    assert_eq!(
+        repos[0].behind, 0,
+        "a fast-forwarded repository is no longer behind its upstream"
+    );
 
     // Test that the clone is now up to date and doesn't need fast-forward
     let (repos, failed) = args.find_repositories();
@@ -334,6 +341,59 @@ fn test_integration_repository_fast_forward() {
     assert_eq!(repos[0].commits, 2);
     assert_eq!(repos[0].behind, 0);
     assert!(!repos[0].fast_forwarded);
+}
+
+/// A repository without any remote cannot be fetched from. It must still be reported
+/// instead of being swallowed into the list of failed repositories.
+#[test]
+fn test_integration_fetch_on_repo_without_remote_is_not_a_failure() {
+    let temp_dir = TempDir::new().unwrap();
+    let _repo = create_git_repo_with_commit(temp_dir.path(), "local-only");
+
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        fetch: true,
+        ..Default::default()
+    };
+
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(
+        failed,
+        Vec::<String>::new(),
+        "repo must not be reported as failed"
+    );
+    assert_eq!(repos.len(), 1, "repo must still be listed");
+    assert_eq!(repos[0].name, "local-only");
+    assert!(!repos[0].fast_forwarded);
+}
+
+/// A branch without an upstream cannot be fast-forwarded. `--ff` must degrade to "no
+/// fast-forward happened" rather than dropping the repository from the output.
+#[test]
+fn test_integration_fast_forward_without_upstream_is_not_a_failure() {
+    let temp_dir = TempDir::new().unwrap();
+    let _repo = create_git_repo_with_commit(temp_dir.path(), "no-upstream");
+
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        fetch: true,
+        fast_forward: true,
+        ..Default::default()
+    };
+
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(
+        failed,
+        Vec::<String>::new(),
+        "repo must not be reported as failed"
+    );
+    assert_eq!(repos.len(), 1, "repo must still be listed");
+    assert!(!repos[0].fast_forwarded);
+    assert!(repos[0].is_local_only);
 }
 
 #[test]
