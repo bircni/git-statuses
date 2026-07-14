@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use git2::Repository;
 
-use crate::gitinfo::{self, status::Status};
+use crate::{
+    gitinfo::{self, status::Status},
+    util::GitPathExt as _,
+};
 
 /// Holds information about a Git repository for status display.
 #[expect(
@@ -96,13 +99,15 @@ impl RepoInfo {
         let repo_path = path.canonicalize().unwrap_or_else(|_| path.clone());
         let root_path = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
         let repo_path_relative = repo_path.strip_prefix(&root_path).unwrap_or(&repo_path);
-        // if relative path is empty, use repo_path
-        let repo_path_relative = if repo_path_relative.as_os_str().is_empty() {
-            &repo_path
+        // The scanned directory is the repository itself when git-statuses is run from
+        // inside one, which leaves the relative path empty. Fall back to the directory
+        // name, so the column reads like it would for a repository one level down instead
+        // of suddenly showing an absolute path.
+        let repo_path = if repo_path_relative.as_os_str().is_empty() {
+            repo_path.dir_name()
         } else {
-            repo_path_relative
+            repo_path_relative.display().to_string()
         };
-        let repo_path = repo_path_relative.display().to_string();
         let is_worktree = repo.is_worktree();
 
         Ok(Self {
