@@ -1,10 +1,15 @@
-use std::path::PathBuf;
+use std::{fs, io, path::Path, path::PathBuf};
 
 use clap::Parser;
+use clap_complete::Shell;
+use git2::Repository;
+use tempfile::TempDir;
 
 use crate::{
     cli::Args,
+    completions,
     gitinfo::{repoinfo::RepoInfo, status::Status},
+    run,
 };
 
 fn repo_info_with_status(status: Status, stash_count: usize, fast_forwarded: bool) -> RepoInfo {
@@ -72,4 +77,176 @@ fn test_args_parse_json_fast_forward_and_subdir() {
     assert!(args.fast_forward);
     assert_eq!(args.subdir.as_deref(), Some("checkout"));
     assert_eq!(args.depth, -1);
+}
+
+/// Creates a repository with one commit, and optionally an uncommitted file.
+fn create_repo(parent: &Path, name: &str, dirty: bool) {
+    let repo_path = parent.join(name);
+    fs::create_dir_all(&repo_path).unwrap();
+    let repo = Repository::init(&repo_path).unwrap();
+
+    let mut config = repo.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
+    drop(config);
+
+    fs::write(repo_path.join("README.md"), "# Test\n").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("README.md")).unwrap();
+    index.write().unwrap();
+    let tree_id = index.write_tree().unwrap();
+    let tree = repo.find_tree(tree_id).unwrap();
+    let sig = repo.signature().unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+        .unwrap();
+
+    if dirty {
+        fs::write(repo_path.join("uncommitted.txt"), "work in progress").unwrap();
+    }
+}
+
+/// A scan directory holding one clean and one dirty repository.
+fn scan_dir() -> TempDir {
+    let temp = TempDir::new().unwrap();
+    create_repo(temp.path(), "clean-repo", false);
+    create_repo(temp.path(), "dirty-repo", true);
+    temp
+}
+
+#[test]
+fn test_run_prints_table() {
+    let temp = scan_dir();
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+#[test]
+fn test_run_with_all_display_options() {
+    let temp = scan_dir();
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        remote: true,
+        path: true,
+        condensed: true,
+        summary: true,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+#[test]
+fn test_run_with_non_clean_filter() {
+    let temp = scan_dir();
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        non_clean: true,
+        summary: true,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+#[test]
+fn test_run_json() {
+    let temp = scan_dir();
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        json: true,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+#[test]
+fn test_run_on_directory_without_repositories() {
+    let temp = TempDir::new().unwrap();
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        summary: true,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+/// A directory whose `.git` git cannot open is reported as failed, not as a hard error.
+#[test]
+fn test_run_reports_failed_repositories() {
+    let temp = TempDir::new().unwrap();
+    let broken = temp.path().join("broken-repo");
+    fs::create_dir_all(&broken).unwrap();
+    fs::write(broken.join(".git"), "not a git directory").unwrap();
+
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 1,
+        summary: true,
+        ..Default::default()
+    };
+    run(&args, &mut io::sink());
+}
+
+#[test]
+fn test_run_legend() {
+    for condensed in [false, true] {
+        let args = Args {
+            legend: true,
+            condensed,
+            ..Default::default()
+        };
+        run(&args, &mut io::sink());
+    }
+}
+
+/// `--completions` must short-circuit before anything is scanned or printed, so that it
+/// stays usable from a shell's startup files no matter which directory it runs in.
+#[test]
+fn test_run_completions_short_circuits_the_scan() {
+    let args = Args {
+        dir: PathBuf::from("/nonexistent/directory/that/does/not/exist"),
+        depth: -1,
+        completions: Some(Shell::Bash),
+        // Would both be honoured if the scan were reached.
+        legend: true,
+        json: true,
+        ..Default::default()
+    };
+
+    let mut out = Vec::new();
+    run(&args, &mut out);
+
+    let script = String::from_utf8(out).unwrap();
+    assert!(
+        script.contains("git-statuses"),
+        "completion script must mention the binary name"
+    );
+    assert!(
+        !script.contains("Cherry Pick"),
+        "the legend must not be printed when generating completions"
+    );
+}
+
+#[test]
+fn test_completions_for_every_supported_shell() {
+    for shell in [
+        Shell::Bash,
+        Shell::Zsh,
+        Shell::Fish,
+        Shell::PowerShell,
+        Shell::Elvish,
+    ] {
+        let mut out = Vec::new();
+        completions(shell, &mut out);
+        assert!(
+            !out.is_empty(),
+            "completion script for {shell} must not be empty"
+        );
+    }
 }
