@@ -636,3 +636,43 @@ fn test_integration_worktree_with_changes() {
         worktree.status
     );
 }
+
+/// Scanning a repository directly (the common `git-statuses` with no argument, run from
+/// inside a checkout) leaves the path relative to the scan root empty. It used to fall back
+/// to the absolute path, so the Directory column showed `/home/user/code/my-repo` here but
+/// a bare `my-repo` for the very same repository when scanning its parent.
+#[test]
+fn test_integration_scanning_a_repository_directly_shows_its_name() {
+    let temp_dir = TempDir::new().unwrap();
+    let _repo = create_git_repo_with_commit(temp_dir.path(), "my-repo");
+    let repo_dir = temp_dir.path().join("my-repo");
+
+    let scanned_directly = Args {
+        dir: repo_dir.clone(),
+        depth: 1,
+        ..Default::default()
+    };
+    let (repos, failed) = scanned_directly.find_repositories();
+
+    assert_eq!(failed.len(), 0);
+    assert_eq!(repos.len(), 1);
+    assert_eq!(
+        repos[0].repo_path, "my-repo",
+        "a directly scanned repository must be shown by name, not by absolute path"
+    );
+
+    // Scanning the parent must produce the same label for the same repository.
+    let scanned_from_parent = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+    let (from_parent, _) = scanned_from_parent.find_repositories();
+    assert_eq!(from_parent[0].repo_path, repos[0].repo_path);
+
+    // The absolute location is still available in the dedicated path field (`--path`).
+    assert_eq!(
+        repos[0].path.canonicalize().unwrap(),
+        repo_dir.canonicalize().unwrap()
+    );
+}
