@@ -66,6 +66,10 @@ pub struct Args {
 impl Args {
     /// Scans the given directory (recursively if requested) for Git repositories and collects their status information.
     ///
+    /// The repositories are collected in parallel, so both returned vectors are sorted
+    /// before they are handed back. Every consumer (table, JSON, warnings) therefore sees
+    /// the same, reproducible order.
+    ///
     /// # Returns
     /// A tuple containing:
     /// - A vector of `RepoInfo` containing details about each found repository.
@@ -138,6 +142,11 @@ impl Args {
                 }
             }
         });
-        (repos.read().to_vec(), failed_repos.read().to_vec())
+
+        let mut repos = repos.read().to_vec();
+        let mut failed_repos = failed_repos.read().to_vec();
+        repos.sort_by_key(|r| r.repo_path.to_lowercase());
+        failed_repos.sort_by_key(|r| r.to_lowercase());
+        (repos, failed_repos)
     }
 }

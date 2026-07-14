@@ -171,6 +171,59 @@ fn test_integration_subdir_functionality() {
     assert_eq!(repos[0].name, "test-repo");
 }
 
+/// Repositories are collected in parallel with rayon, so the raw collection order depends
+/// on thread scheduling. `find_repositories` must hand back a sorted, reproducible order,
+/// otherwise consumers that do not sort themselves (`--json`, the failure warnings) emit a
+/// different order on every run.
+#[test]
+fn test_integration_find_repositories_returns_sorted_results() {
+    let temp_dir = TempDir::new().unwrap();
+
+    for name in ["delta", "alpha", "Charlie", "bravo"] {
+        create_git_repo_with_commit(temp_dir.path(), name);
+    }
+    // Directories with a `.git` that git cannot open end up in the failed list.
+    for name in ["zeta-broken", "echo-broken"] {
+        let broken = temp_dir.path().join(name);
+        fs::create_dir_all(&broken).unwrap();
+        fs::write(broken.join(".git"), "not a git directory").unwrap();
+    }
+
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+
+    let (repos, failed) = args.find_repositories();
+
+    let paths: Vec<&str> = repos.iter().map(|r| r.repo_path.as_str()).collect();
+    assert_eq!(
+        paths,
+        ["alpha", "bravo", "Charlie", "delta"],
+        "repositories must be sorted case-insensitively"
+    );
+    assert_eq!(
+        failed,
+        ["echo-broken", "zeta-broken"],
+        "failed repositories must be sorted"
+    );
+
+    // The order must not depend on the parallel scheduling of a particular run.
+    for _ in 0..5 {
+        let (again, failed_again) = args.find_repositories();
+        assert_eq!(
+            again.iter().map(|r| &r.repo_path).collect::<Vec<_>>(),
+            repos.iter().map(|r| &r.repo_path).collect::<Vec<_>>(),
+            "repository order must be stable across scans"
+        );
+        assert_eq!(
+            failed_again, failed,
+            "failed repository order must be stable across scans"
+        );
+    }
+}
+
 #[test]
 fn test_integration_mixed_git_and_non_git_directories() {
     let temp_dir = TempDir::new().unwrap();
