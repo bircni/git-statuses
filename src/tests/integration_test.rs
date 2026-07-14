@@ -721,3 +721,52 @@ fn test_integration_depth_edge_values() {
         "i32::MIN must not overflow the depth cast"
     );
 }
+
+/// The walker must not descend into a repository's `.git` directory. Nothing in there is a
+/// repository, and the guard that used to keep the `worktrees/<name>` metadata out of the
+/// results matched the hardcoded substring `/.git/worktrees/`, which cannot match on
+/// Windows, where the separator is a backslash.
+#[test]
+fn test_integration_unlimited_depth_ignores_git_internals() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let main_repo_path = temp_dir.path().join("main-repo");
+    create_git_repo_with_commit(temp_dir.path(), "main-repo");
+
+    // `git worktree add` populates .git/worktrees/<name> with a HEAD, commondir, gitdir...
+    let worktree_path = temp_dir.path().join("feature-worktree");
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "-b", "feature"])
+        .arg(&worktree_path)
+        .current_dir(&main_repo_path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "failed to create worktree: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // An unlimited scan walks everything below the root, git directories included.
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: -1,
+        ..Default::default()
+    };
+    let (repos, failed) = args.find_repositories();
+
+    assert_eq!(failed, Vec::<String>::new());
+    assert_eq!(
+        repos.len(),
+        2,
+        "expected only the main repo and its worktree, got: {:?}",
+        repos.iter().map(|r| &r.repo_path).collect::<Vec<_>>()
+    );
+    for repo in &repos {
+        assert!(
+            !repo.path.components().any(|c| c.as_os_str() == ".git"),
+            "no result may point inside a git directory, got: {}",
+            repo.path.display()
+        );
+    }
+}
