@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf, sync::Arc};
+use std::{borrow::Cow, ffi::OsStr, path::PathBuf, sync::Arc};
 
 use clap::Parser;
 use clap_complete::Shell;
@@ -91,7 +91,14 @@ impl Args {
                 walk = walk.max_depth(self.depth.max(1) as usize);
             }
 
-            walk.into_iter().filter_map(Result::ok).collect::<Vec<_>>()
+            // Never descend into a repository's own git directory. Nothing inside it is a
+            // repository the user asked about - it holds git's bookkeeping, including the
+            // `worktrees/<name>` metadata directories - and on a deep scan it is a lot of
+            // entries to walk and stat for nothing.
+            walk.into_iter()
+                .filter_entry(|e| e.depth() == 0 || e.file_name() != OsStr::new(".git"))
+                .filter_map(Result::ok)
+                .collect::<Vec<_>>()
         };
 
         let repos: Arc<RwLock<Vec<RepoInfo>>> = Arc::new(RwLock::new(Vec::new()));
@@ -99,12 +106,6 @@ impl Args {
 
         walker.par_iter().for_each(|entry| {
             let orig_path = entry.path();
-
-            // Skip internal .git/worktrees directories - these are metadata, not actual repos
-            if orig_path.to_string_lossy().contains("/.git/worktrees/") {
-                return;
-            }
-
             let repo_name = orig_path.dir_name();
             let path_buf = {
                 if orig_path.is_git_directory() || orig_path.is_git_worktree() {
