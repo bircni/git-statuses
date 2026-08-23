@@ -17,7 +17,6 @@ clap_complete = "4.6"
 comfy-table = "8.0.0"
 git2 = { version = "0.21", default-features = false, features = ["https", "ssh", "vendored-openssl"] }
 log = "0.4.34"
-parking_lot = "0.12.5"
 rayon = "1.12.0"
 serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"

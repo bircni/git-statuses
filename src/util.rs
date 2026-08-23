@@ -25,21 +25,15 @@ pub fn initialize_logger() -> anyhow::Result<()> {
 
 /// Extension trait for working with Git repository paths.
 pub trait GitPathExt {
-    /// Checks if the path is a Git repository directory.
+    /// Checks if the path is a Git repository checkout.
     ///
-    /// This checks if the directory exists and contains a `.git` subdirectory.
+    /// True for a directory containing a `.git` entry, whether that entry is the usual
+    /// directory or the file a linked worktree uses to point at the main repository.
     ///
     /// # Returns
     ///
     /// `true` if the path is a Git repository, `false` otherwise.
     fn is_git_directory(&self) -> bool;
-
-    /// Checks if the path is a Git worktree.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the path is a Git worktree, `false` otherwise.
-    fn is_git_worktree(&self) -> bool;
 
     /// Extracts the repository name from the path.
     ///
@@ -54,21 +48,6 @@ pub trait GitPathExt {
 impl GitPathExt for Path {
     fn is_git_directory(&self) -> bool {
         self.is_dir() && self.join(".git").exists()
-    }
-
-    /// Checks if the path is a Git worktree.
-    ///
-    /// A worktree has a `.git` file (not directory) that points to the main repo.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the path is a Git worktree, `false` otherwise.
-    fn is_git_worktree(&self) -> bool {
-        if !self.is_dir() {
-            return false;
-        }
-        let git_path = self.join(".git");
-        git_path.exists() && git_path.is_file()
     }
 
     fn dir_name(&self) -> String {

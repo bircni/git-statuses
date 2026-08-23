@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
 use strum::IntoEnumIterator;
 
@@ -5,6 +7,27 @@ use crate::{
     cli::Args,
     gitinfo::{repoinfo::RepoInfo, status::Status},
 };
+
+/// Builds an empty table with the shared style applied.
+///
+/// Both the repository table and the legend use the same preset and arrangement, so the
+/// two can never drift apart in how they render.
+fn styled_table(condensed: bool) -> Table {
+    let mut table = Table::new();
+    table
+        .load_style(if condensed {
+            presets::UTF8_FULL_CONDENSED
+        } else {
+            presets::UTF8_FULL
+        })
+        .set_content_arrangement(ContentArrangement::Dynamic);
+    table
+}
+
+/// Builds a bold header cell.
+fn header_cell(title: &str) -> Cell {
+    Cell::new(title).add_attribute(Attribute::Bold)
+}
 
 /// Prints the repository status information as a table or list, depending on CLI options.
 ///
@@ -14,44 +37,35 @@ use crate::{
 /// # Arguments
 /// * `repos` - List of repositories to display.
 /// * `args` - CLI arguments controlling the output format.
-pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
+/// * `out` - Where to write the table to.
+pub fn repositories_table(repos: &[RepoInfo], args: &Args, out: &mut impl Write) {
     if repos.is_empty() {
         log::info!("No repositories found.");
         return;
     }
 
-    let mut table = Table::new();
-    let preset = if args.condensed {
-        presets::UTF8_FULL_CONDENSED
-    } else {
-        presets::UTF8_FULL
-    };
-    table
-        .load_style(preset)
-        .set_content_arrangement(ContentArrangement::Dynamic);
+    let mut table = styled_table(args.condensed);
 
-    let mut header = vec![
-        Cell::new("Directory").add_attribute(Attribute::Bold),
-        Cell::new("Branch").add_attribute(Attribute::Bold),
-        Cell::new("Local").add_attribute(Attribute::Bold),
-        Cell::new("Commits").add_attribute(Attribute::Bold),
-        Cell::new("Status").add_attribute(Attribute::Bold),
-    ];
+    let mut header: Vec<Cell> = ["Directory", "Branch", "Local", "Commits", "Status"]
+        .into_iter()
+        .map(header_cell)
+        .collect();
     if args.remote {
-        header.push(Cell::new("Remote").add_attribute(Attribute::Bold));
+        header.push(header_cell("Remote"));
     }
     if args.path {
-        header.push(Cell::new("Path").add_attribute(Attribute::Bold));
+        header.push(header_cell("Path"));
     }
     table.set_header(header);
 
     for repo in repos {
-        let display_path = if repo.is_worktree {
-            format!("⎇ {}", repo.repo_path)
+        // `⎇` marks a linked worktree; the plain path is passed through untouched.
+        let name_cell = if repo.is_worktree {
+            Cell::new(format!("⎇ {}", repo.repo_path))
         } else {
-            repo.repo_path.clone()
-        };
-        let name_cell = Cell::new(&display_path).fg(repo.status.comfy_color());
+            Cell::new(&repo.repo_path)
+        }
+        .fg(repo.status.comfy_color());
 
         let mut row = vec![
             name_cell,
@@ -68,34 +82,32 @@ pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
         }
         table.add_row(row);
     }
-    println!("{table}");
+    // Writing to the caller's sink cannot be recovered from here, and a broken pipe is
+    // the normal way this ends when the output is piped into `head`.
+    let _ = writeln!(out, "{table}");
 }
 
 /// Prints a legend explaining the color codes and statuses used in the output.
 /// # Arguments
 /// * `condensed` - If true, uses a condensed format for the legend.
-pub fn legend(condensed: bool) {
-    let mut table = Table::new();
-    let preset = if condensed {
-        presets::UTF8_FULL_CONDENSED
-    } else {
-        presets::UTF8_FULL
-    };
-    table
-        .load_style(preset)
-        .set_content_arrangement(ContentArrangement::Dynamic);
-    table.set_header(vec![
-        Cell::new("Status").add_attribute(Attribute::Bold),
-        Cell::new("Description").add_attribute(Attribute::Bold),
-    ]);
+/// * `out` - Where to write the legend to.
+pub fn legend(condensed: bool, out: &mut impl Write) {
+    let mut table = styled_table(condensed);
+    table.set_header(vec![header_cell("Status"), header_cell("Description")]);
     Status::iter().for_each(|status| {
         table.add_row(vec![status.as_cell(), Cell::new(status.description())]);
     });
-    println!("{table}");
-    println!("The counts in brackets indicate the number of changed files.");
-    println!("The counts in brackets with an asterisk (*) indicate the number of stashes.");
-    println!("↑↑ indicates that the repository was fast-forwarded");
-    println!("⎇ indicates a Git worktree");
+    let _ = writeln!(out, "{table}");
+    let _ = writeln!(
+        out,
+        "The counts in brackets indicate the number of changed files."
+    );
+    let _ = writeln!(
+        out,
+        "The counts in brackets with an asterisk (*) indicate the number of stashes."
+    );
+    let _ = writeln!(out, "↑↑ indicates that the repository was fast-forwarded");
+    let _ = writeln!(out, "⎇ indicates a Git worktree");
 }
 
 /// Prints a summary of the repository scan (total, clean, dirty, unpushed).
@@ -103,7 +115,8 @@ pub fn legend(condensed: bool) {
 /// # Arguments
 /// * `repos` - List of repositories to summarize.
 /// * `failed` - Number of repositories that failed to process.
-pub fn summary(repos: &[RepoInfo], failed: usize) {
+/// * `out` - Where to write the summary to.
+pub fn summary(repos: &[RepoInfo], failed: usize, out: &mut impl Write) {
     let total = repos.len();
     let clean = repos.iter().filter(|r| r.status == Status::Clean).count();
     let dirty = repos
@@ -114,16 +127,16 @@ pub fn summary(repos: &[RepoInfo], failed: usize) {
     let with_stashes = repos.iter().filter(|r| r.stash_count > 0).count();
     let local_only = repos.iter().filter(|r| r.is_local_only).count();
     let fast_forwarded = repos.iter().filter(|r| r.fast_forwarded).count();
-    println!("\nSummary:");
-    println!("  Total repositories:   {total}");
-    println!("  Clean:                {clean}");
-    println!("  With changes:         {dirty}");
-    println!("  With unpushed:        {unpushed}");
-    println!("  With stashes:         {with_stashes}");
-    println!("  Local-only branches:  {local_only}");
-    println!("  Fast-forwarded:       {fast_forwarded}");
+    let _ = writeln!(out, "\nSummary:");
+    let _ = writeln!(out, "  Total repositories:   {total}");
+    let _ = writeln!(out, "  Clean:                {clean}");
+    let _ = writeln!(out, "  With changes:         {dirty}");
+    let _ = writeln!(out, "  With unpushed:        {unpushed}");
+    let _ = writeln!(out, "  With stashes:         {with_stashes}");
+    let _ = writeln!(out, "  Local-only branches:  {local_only}");
+    let _ = writeln!(out, "  Fast-forwarded:       {fast_forwarded}");
     if failed > 0 {
-        println!("  Failed to process:    {failed}");
+        let _ = writeln!(out, "  Failed to process:    {failed}");
     }
 }
 
@@ -156,6 +169,7 @@ pub fn json_value(repos: &[RepoInfo], failed_repos: &[String]) -> serde_json::Va
 /// # Arguments
 /// * `repos` - List of repositories to output.
 /// * `failed_repos` - List of repository names that failed to process.
-pub fn json_output(repos: &[RepoInfo], failed_repos: &[String]) {
-    println!("{}", json_value(repos, failed_repos));
+/// * `out` - Where to write the JSON to.
+pub fn json_output(repos: &[RepoInfo], failed_repos: &[String], out: &mut impl Write) {
+    let _ = writeln!(out, "{}", json_value(repos, failed_repos));
 }

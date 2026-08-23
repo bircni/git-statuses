@@ -6,7 +6,10 @@ use std::{
 use comfy_table::Color;
 use git2::Repository;
 
-use crate::gitinfo::{self, repoinfo::RepoInfo, status::Status};
+use crate::{
+    cli::Args,
+    gitinfo::{self, repoinfo::RepoInfo, status::Status},
+};
 
 fn init_temp_repo() -> (tempfile::TempDir, Repository) {
     let tmp_dir = tempfile::tempdir().unwrap();
@@ -15,6 +18,10 @@ fn init_temp_repo() -> (tempfile::TempDir, Repository) {
     config.set_str("user.name", "Test User").unwrap();
     config.set_str("user.email", "test@example.com").unwrap();
     (tmp_dir, repo)
+}
+
+fn changed_count(repo: &Repository) -> usize {
+    gitinfo::count_changed(&repo.statuses(Some(&mut gitinfo::status_options())).unwrap())
 }
 
 #[test]
@@ -126,9 +133,7 @@ fn test_repo_info_new_with_and_without_remote() {
     let info = RepoInfo::new(
         &mut repo,
         "tmp",
-        false,
-        false,
-        false,
+        &Args::default(),
         &PathBuf::from("/path/to/repo"),
     );
     info.unwrap();
@@ -136,9 +141,10 @@ fn test_repo_info_new_with_and_without_remote() {
     let info_remote = RepoInfo::new(
         &mut repo,
         "tmp",
-        true,
-        false,
-        false,
+        &Args {
+            remote: true,
+            ..Default::default()
+        },
         &PathBuf::from("/path/to/repo"),
     );
     info_remote.unwrap();
@@ -248,21 +254,12 @@ fn test_get_stash_count_empty() {
 }
 
 #[test]
-fn test_get_ahead_behind_and_local_status_no_upstream() {
-    let (_tmp, repo) = init_temp_repo();
-    let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
-    assert_eq!((ahead, behind, is_local_only), (0, 0, true));
-}
-
-#[test]
 fn test_repo_info_includes_stash_and_local_status() {
     let (_tmp, mut repo) = init_temp_repo();
     let info = RepoInfo::new(
         &mut repo,
         "test",
-        false,
-        false,
-        false,
+        &Args::default(),
         &PathBuf::from("/path/to/repo"),
     )
     .unwrap();
@@ -323,7 +320,7 @@ fn test_get_changed_count_multiple_types() {
     index.add_path(Path::new("file3.txt")).unwrap();
     index.write().unwrap();
 
-    let changed_count = gitinfo::get_changed_count(&repo);
+    let changed_count = changed_count(&repo);
     assert!(changed_count >= 3); // At least the three changes we made
 }
 
@@ -450,9 +447,7 @@ fn test_get_repo_name_from_url() {
     let info = RepoInfo::new(
         &mut repo,
         "fallback-name",
-        false,
-        false,
-        false,
+        &Args::default(),
         &PathBuf::from("/path/to/repo"),
     )
     .unwrap();
@@ -609,9 +604,7 @@ fn test_repo_info_name_from_scp_style_remote() {
     let info = RepoInfo::new(
         &mut repo,
         "fallback-name",
-        false,
-        false,
-        false,
+        &Args::default(),
         &PathBuf::from("/path/to/repo"),
     )
     .unwrap();
@@ -629,9 +622,7 @@ fn test_repo_info_name_falls_back_to_directory_name() {
     let info = RepoInfo::new(
         &mut repo,
         "fallback-name",
-        false,
-        false,
-        false,
+        &Args::default(),
         &PathBuf::from("/path/to/repo"),
     )
     .unwrap();
@@ -663,11 +654,7 @@ fn test_typechange_is_reported_as_dirty() {
     fs::remove_file(&path).unwrap();
     std::os::unix::fs::symlink("/etc/hostname", &path).unwrap();
 
-    assert_eq!(
-        gitinfo::get_changed_count(&repo),
-        1,
-        "a typechange is a change"
-    );
+    assert_eq!(changed_count(&repo), 1, "a typechange is a change");
     assert_eq!(
         Status::new(&repo),
         Status::Dirty(1),
@@ -695,7 +682,7 @@ fn test_status_and_changed_count_agree() {
     drop(index);
 
     // A committed working directory has no changes at all.
-    assert_eq!(gitinfo::get_changed_count(&repo), 0);
+    assert_eq!(changed_count(&repo), 0);
     assert_ne!(Status::new(&repo), Status::Dirty(0));
 
     // Each new kind of change must move both the status and the count in lockstep.
@@ -707,7 +694,7 @@ fn test_status_and_changed_count_agree() {
 
     assert_eq!(
         Status::new(&repo),
-        Status::Dirty(gitinfo::get_changed_count(&repo)),
+        Status::Dirty(changed_count(&repo)),
         "the reported count must be the same one the dirty check used"
     );
 }
@@ -730,7 +717,7 @@ fn test_ignored_files_do_not_make_a_repository_dirty() {
 
     fs::write(tmp.path().join("ignored.txt"), "please ignore me").unwrap();
 
-    assert_eq!(gitinfo::get_changed_count(&repo), 0);
+    assert_eq!(changed_count(&repo), 0);
     assert_ne!(
         Status::new(&repo),
         Status::Dirty(0),
@@ -836,9 +823,7 @@ fn test_get_repo_path_for_bare_repository() {
     let info = RepoInfo::new(
         &mut Repository::open(&bare_path).unwrap(),
         "bare",
-        false,
-        false,
-        false,
+        &Args::default(),
         tmp.path(),
     )
     .unwrap();
@@ -861,7 +846,7 @@ fn test_get_repo_path_for_bare_repository_without_git_suffix() {
     Repository::init_bare(&bare_path).unwrap();
 
     let mut repo = Repository::open(&bare_path).unwrap();
-    let info = RepoInfo::new(&mut repo, "plain-bare", false, false, false, tmp.path()).unwrap();
+    let info = RepoInfo::new(&mut repo, "plain-bare", &Args::default(), tmp.path()).unwrap();
 
     assert_eq!(
         info.path.canonicalize().unwrap(),

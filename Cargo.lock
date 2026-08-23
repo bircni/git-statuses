@@ -298,7 +298,6 @@ dependencies = [
  "git2",
  "insta",
  "log",
- "parking_lot",
  "rayon",
  "serde",
  "serde_json",
