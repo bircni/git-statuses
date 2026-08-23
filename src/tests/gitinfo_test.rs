@@ -931,3 +931,98 @@ fn test_symbolic_branch_ref_has_no_target() {
         "a branch ref with no target has an unknown push status"
     );
 }
+
+/// Points `refs/remotes/origin/<name>` at the current commit, as a fetch would.
+fn add_fetched_remote_ref(repo: &Repository, name: &str) {
+    repo.remote("origin", "https://example.com/repo.git").ok();
+    let oid = repo.head().unwrap().target().unwrap();
+    repo.reference(
+        &format!("refs/remotes/origin/{name}"),
+        oid,
+        true,
+        "fetched by test",
+    )
+    .unwrap();
+}
+
+/// A branch that was fetched but never set to track must not be reported as local-only.
+///
+/// Before the upstream lookups were unified the `Local` column asked for the configured
+/// upstream (absent here, so "local-only") while the `Status` column matched the remote
+/// ref by name (present, so "Clean") - one row contradicting itself.
+#[test]
+fn test_fetched_but_untracked_branch_is_not_local_only() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+    let branch = gitinfo::get_branch_name(&repo);
+    add_fetched_remote_ref(&repo, &branch);
+
+    // No upstream is configured, only the remote-tracking ref exists.
+    assert!(
+        repo.find_branch(&branch, git2::BranchType::Local)
+            .unwrap()
+            .upstream()
+            .is_err(),
+        "this test is only meaningful without a configured upstream"
+    );
+
+    let (ahead, behind, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
+    assert_eq!(
+        (ahead, behind, is_local_only),
+        (0, 0, false),
+        "a branch with a same-named remote ref has an upstream to compare against"
+    );
+    assert_eq!(
+        gitinfo::get_branch_push_status(&repo),
+        Status::Clean,
+        "and it is published, so it is clean"
+    );
+}
+
+/// A branch tracking a differently-named upstream must be judged against that upstream.
+///
+/// Before the unification the `Status` column looked for `refs/remotes/origin/<branch>`,
+/// which does not exist here, and reported the branch as unpublished even though the
+/// `Local` column had already counted commits against its real upstream.
+#[test]
+fn test_branch_tracking_a_differently_named_upstream() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+    let base = gitinfo::get_branch_name(&repo);
+    add_fetched_remote_ref(&repo, &base);
+
+    // Move onto a branch whose upstream is the differently-named `origin/<base>`, then
+    // commit so it is genuinely ahead.
+    repo.set_head(&format!("refs/heads/{base}")).unwrap();
+    let mut branch = repo.find_branch(&base, git2::BranchType::Local).unwrap();
+    branch.rename("feature", true).unwrap();
+    repo.set_head("refs/heads/feature").unwrap();
+
+    let mut config = repo.config().unwrap();
+    config.set_str("branch.feature.remote", "origin").unwrap();
+    config
+        .set_str("branch.feature.merge", &format!("refs/heads/{base}"))
+        .unwrap();
+
+    fs::write(tmp.path().join("second.txt"), "more").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("second.txt")).unwrap();
+    index.write().unwrap();
+    let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = repo.signature().unwrap();
+    let parent = repo.head().unwrap().peel_to_commit().unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "second", &tree, &[&parent])
+        .unwrap();
+
+    let (ahead, _, is_local_only) = gitinfo::get_ahead_behind_and_local_status(&repo);
+    assert_eq!(
+        (ahead, is_local_only),
+        (1, false),
+        "the branch is one commit ahead of its configured upstream"
+    );
+    assert_eq!(
+        gitinfo::get_branch_push_status(&repo),
+        Status::Unpushed,
+        "being ahead of its upstream makes it unpushed, not unpublished"
+    );
+}

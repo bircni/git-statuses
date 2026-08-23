@@ -127,6 +127,35 @@ pub fn get_branch_name(repo: &Repository) -> String {
     "(no branch)".to_owned()
 }
 
+/// Resolves the commit the current branch is measured against.
+///
+/// Prefers the configured upstream (`branch.<name>.merge`) - the same thing `git status`
+/// and `@{u}` mean by "upstream". When a branch has no upstream configured, falls back to
+/// a remote-tracking ref of the same name, so a branch that was fetched but never set to
+/// track is not treated as if it had no remote at all.
+///
+/// Both the ahead/behind counts and the push status go through this, so the two can never
+/// disagree about whether a branch has an upstream.
+///
+/// # Arguments
+/// * `repo` - The Git repository to resolve in.
+/// * `branch_name` - The short name of the local branch.
+/// # Returns
+/// The upstream commit, or `None` if the branch has no upstream under either rule.
+fn upstream_oid(repo: &Repository, branch_name: &str) -> Option<git2::Oid> {
+    if let Ok(branch) = repo.find_branch(branch_name, git2::BranchType::Local)
+        && let Ok(upstream) = branch.upstream()
+        && let Some(oid) = upstream.get().target()
+    {
+        return Some(oid);
+    }
+
+    let remote_name = get_remote_name(repo)?;
+    repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
+        .ok()?
+        .target()
+}
+
 /// Get the number of commits ahead and behind the upstream branch, and whether the branch is local-only.
 /// If the current branch has no upstream, it returns (0, 0, true).
 /// # Arguments
@@ -134,24 +163,22 @@ pub fn get_branch_name(repo: &Repository) -> String {
 /// # Returns
 /// A tuple containing the number of commits ahead, behind, and whether the branch is local-only.
 pub fn get_ahead_behind_and_local_status(repo: &Repository) -> (usize, usize, bool) {
+    const LOCAL_ONLY: (usize, usize, bool) = (0, 0, true);
+
     let Ok(head) = repo.head() else {
-        return (0, 0, true);
+        return LOCAL_ONLY;
     };
-    let branch = head
-        .shorthand()
-        .ok()
-        .and_then(|name| repo.find_branch(name, git2::BranchType::Local).ok());
-    if let Some(branch) = branch
-        && let Ok(upstream) = branch.upstream()
-    {
-        let local_oid = branch.get().target();
-        let upstream_oid = upstream.get().target();
-        if let (Some(local), Some(up)) = (local_oid, upstream_oid) {
-            let (ahead, behind) = repo.graph_ahead_behind(local, up).unwrap_or((0, 0));
-            return (ahead, behind, false);
-        }
-    }
-    (0, 0, true)
+    let (Ok(branch_name), Some(local_oid)) = (head.shorthand(), head.target()) else {
+        return LOCAL_ONLY;
+    };
+    let Some(upstream) = upstream_oid(repo, branch_name) else {
+        return LOCAL_ONLY;
+    };
+
+    let (ahead, behind) = repo
+        .graph_ahead_behind(local_oid, upstream)
+        .unwrap_or((0, 0));
+    (ahead, behind, false)
 }
 
 /// Gets the total number of commits in the current branch.
@@ -263,24 +290,11 @@ pub fn get_branch_push_status(repo: &Repository) -> Status {
         return Status::Detached;
     }
 
-    let Ok(local_branch) = head.shorthand() else {
+    let (Ok(branch_name), Some(local_oid)) = (head.shorthand(), head.target()) else {
         return Status::Unknown;
     };
 
-    let Some(local_oid) = head.target() else {
-        return Status::Unknown;
-    };
-
-    let Some(remote_name) = get_remote_name(repo) else {
-        return Status::Unpublished;
-    };
-
-    let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/{remote_name}/{local_branch}"))
-    else {
-        return Status::Unpublished;
-    };
-
-    let Some(remote_oid) = remote_ref.target() else {
+    let Some(remote_oid) = upstream_oid(repo, branch_name) else {
         return Status::Unpublished;
     };
 
