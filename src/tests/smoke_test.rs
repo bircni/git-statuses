@@ -7,6 +7,7 @@ use std::{fs, path::Path, time::Instant};
 
 use git2::Repository;
 
+use crate::scan;
 use crate::{
     cli::Args,
     gitinfo::{self, status::Status},
@@ -100,7 +101,7 @@ fn test_multiple_repos_with_different_remotes_and_statuses() {
         dir: base_path.to_path_buf(),
         ..Default::default()
     };
-    _ = args.find_repositories();
+    _ = scan::find_repositories(&args);
 
     let duration = start.elapsed();
 

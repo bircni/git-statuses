@@ -9,6 +9,7 @@ use crate::cli::Args;
 mod cli;
 mod gitinfo;
 mod printer;
+mod scan;
 #[cfg(test)]
 mod tests;
 mod util;
@@ -43,7 +44,7 @@ fn run(args: &Args, out: &mut impl Write) {
         return;
     }
 
-    let (repos, failed_repos) = args.find_repositories();
+    let (repos, failed_repos) = scan::find_repositories(args);
     let displayed = args.filter_repos(&repos);
 
     if args.json {
