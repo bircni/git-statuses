@@ -875,3 +875,34 @@ fn test_integration_clean_and_unpushed_against_a_remote() {
     assert_eq!(repos[0].ahead, 1);
     assert_eq!(repos[0].behind, 0);
 }
+
+/// A repository that opens but cannot be read must be reported as failed rather than
+/// silently dropped from the scan. Removing the object database leaves the refs in place,
+/// so the repository opens and HEAD resolves, but the commit history cannot be walked.
+#[test]
+fn test_repository_with_unreadable_history_is_reported_as_failed() {
+    let temp = TempDir::new().unwrap();
+    create_git_repo_with_commit(temp.path(), "healthy");
+    let broken = temp.path().join("no-objects");
+    create_git_repo_with_commit(temp.path(), "no-objects");
+
+    // Drop the object database but keep the refs pointing into it.
+    fs::remove_dir_all(broken.join(".git/objects")).unwrap();
+
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 2,
+        ..Default::default()
+    };
+    let (repos, failed) = args.find_repositories();
+
+    assert!(
+        repos.iter().any(|r| r.repo_path == "healthy"),
+        "the readable repository must still be reported, got: {:?}",
+        repos.iter().map(|r| &r.repo_path).collect::<Vec<_>>()
+    );
+    assert!(
+        failed.iter().any(|f| f == "no-objects"),
+        "the unreadable repository must be listed as failed, got: {failed:?}"
+    );
+}

@@ -854,3 +854,80 @@ fn test_get_repo_path_for_bare_repository_without_git_suffix() {
     );
     assert_eq!(info.repo_path, "plain-bare");
 }
+
+/// A repository without a working directory falls back to its git directory, with the
+/// trailing `.git` component stripped so the reported path is the checkout, not the
+/// bookkeeping directory inside it.
+#[test]
+fn test_repo_path_of_a_bare_handle_strips_the_git_component() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+    drop(repo);
+
+    // Opening the `.git` directory bare gives a handle with no working directory.
+    let mut bare = Repository::open_bare(tmp.path().join(".git")).unwrap();
+    let info = RepoInfo::new(&mut bare, "bare-handle", &Args::default(), tmp.path()).unwrap();
+
+    let expected = tmp.path().canonicalize().unwrap();
+    assert_eq!(
+        info.path.canonicalize().unwrap(),
+        expected,
+        "a bare handle on `.git` must report the checkout directory"
+    );
+}
+
+/// A remote-tracking ref can be symbolic (`refs/remotes/origin/HEAD` is, by default), in
+/// which case it resolves to no object of its own. Such a branch counts as unpublished
+/// rather than as an error.
+#[test]
+fn test_branch_push_status_with_a_symbolic_remote_ref() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+    repo.remote("origin", "https://example.com/repo.git")
+        .unwrap();
+
+    let branch = gitinfo::get_branch_name(&repo);
+    repo.reference_symbolic(
+        &format!("refs/remotes/origin/{branch}"),
+        "refs/heads/does-not-resolve",
+        true,
+        "symbolic remote ref for test",
+    )
+    .unwrap();
+
+    assert_eq!(
+        gitinfo::get_branch_push_status(&repo),
+        Status::Unpublished,
+        "a symbolic remote ref carries no target, so the branch is not published"
+    );
+    drop(tmp);
+}
+
+/// A branch ref can itself be symbolic, in which case it carries no object of its own.
+/// Nothing may panic on that: the commit count is zero and the push status is unknown.
+#[test]
+fn test_symbolic_branch_ref_has_no_target() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+
+    let branch = gitinfo::get_branch_name(&repo);
+    // Replace the branch ref with a symbolic one pointing at a ref that does not exist.
+    repo.reference_symbolic(
+        &format!("refs/heads/{branch}"),
+        "refs/heads/nowhere",
+        true,
+        "symbolic branch ref for test",
+    )
+    .unwrap();
+
+    assert_eq!(
+        gitinfo::get_total_commits(&repo).unwrap(),
+        0,
+        "a branch ref with no target has no commits to walk"
+    );
+    assert_eq!(
+        gitinfo::get_branch_push_status(&repo),
+        Status::Unknown,
+        "a branch ref with no target has an unknown push status"
+    );
+}
