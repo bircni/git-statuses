@@ -2,6 +2,7 @@
 use crate::cli::Args;
 use crate::gitinfo::{repoinfo::RepoInfo, status::Status};
 use crate::printer;
+use crate::scan;
 use crate::util::{GitPathExt, initialize_logger};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,7 +28,7 @@ fn test_find_repositories_empty_dir() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
     assert!(repos.is_empty());
     assert!(failed.is_empty());
 }
@@ -80,7 +81,7 @@ fn test_find_repositories_with_non_git_dir() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
     assert!(repos.is_empty());
     assert!(failed.is_empty());
 }
@@ -187,7 +188,7 @@ fn test_find_repositories_negative_depth() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     // Should complete without crashing (empty dir, no repos expected)
     assert_eq!(failed.len(), 0);
@@ -205,7 +206,7 @@ fn test_find_repositories_depth_zero() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     // Should complete without crashing (empty dir, no repos expected)
     assert_eq!(failed.len(), 0);
@@ -227,7 +228,7 @@ fn test_find_repositories_with_failed_repos() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 0);
     assert_eq!(failed.len(), 1);
@@ -249,7 +250,7 @@ fn test_find_repositories_with_subdir_not_found() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     // Should find no repos because subdir doesn't exist
     assert_eq!(repos.len(), 0);

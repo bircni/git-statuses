@@ -5,6 +5,7 @@ use git2::Repository;
 use tempfile::TempDir;
 
 use crate::cli::Args;
+use crate::scan;
 
 /// Helper to create a git repository with initial commit
 fn create_git_repo_with_commit(path: &Path, repo_name: &str) -> Repository {
@@ -67,7 +68,7 @@ fn test_integration_single_clean_repository() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -89,7 +90,7 @@ fn test_integration_multiple_repositories() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 3);
     assert_eq!(failed.len(), 0);
@@ -126,7 +127,7 @@ fn test_integration_nested_repositories_with_depth() {
         depth: 1,
         ..Default::default()
     };
-    let (repos_depth1, _) = args_depth1.find_repositories();
+    let (repos_depth1, _) = scan::find_repositories(&args_depth1);
     assert_eq!(repos_depth1.len(), 1);
     assert_eq!(repos_depth1[0].name, "root-repo");
 
@@ -136,7 +137,7 @@ fn test_integration_nested_repositories_with_depth() {
         depth: 3,
         ..Default::default()
     };
-    let (repos_depth3, _) = args_depth3.find_repositories();
+    let (repos_depth3, _) = scan::find_repositories(&args_depth3);
     assert_eq!(repos_depth3.len(), 3);
 
     let repo_names: Vec<&str> = repos_depth3.iter().map(|r| r.name.as_str()).collect();
@@ -164,7 +165,7 @@ fn test_integration_subdir_functionality() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -195,7 +196,7 @@ fn test_integration_find_repositories_returns_sorted_results() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     let paths: Vec<&str> = repos.iter().map(|r| r.repo_path.as_str()).collect();
     assert_eq!(
@@ -211,7 +212,7 @@ fn test_integration_find_repositories_returns_sorted_results() {
 
     // The order must not depend on the parallel scheduling of a particular run.
     for _ in 0..5 {
-        let (again, failed_again) = args.find_repositories();
+        let (again, failed_again) = scan::find_repositories(&args);
         assert_eq!(
             again.iter().map(|r| &r.repo_path).collect::<Vec<_>>(),
             repos.iter().map(|r| &r.repo_path).collect::<Vec<_>>(),
@@ -244,7 +245,7 @@ fn test_integration_mixed_git_and_non_git_directories() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -281,7 +282,7 @@ fn test_integration_repository_with_stashes() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -304,7 +305,7 @@ fn test_integration_repository_with_remote() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -337,7 +338,7 @@ fn test_integration_repository_fast_forward() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -372,7 +373,7 @@ fn test_integration_repository_fast_forward() {
 
     // Test that the clone was fast-forwarded, and that the reported state describes the
     // repository *after* the merge rather than before it.
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -387,7 +388,7 @@ fn test_integration_repository_fast_forward() {
     );
 
     // Test that the clone is now up to date and doesn't need fast-forward
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
@@ -410,7 +411,7 @@ fn test_integration_fetch_on_repo_without_remote_is_not_a_failure() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(
         failed,
@@ -437,7 +438,7 @@ fn test_integration_fast_forward_without_upstream_is_not_a_failure() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(
         failed,
@@ -514,7 +515,7 @@ fn test_integration_worktree_detection() {
         ..Default::default()
     };
 
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     // We should find exactly 2 repositories: main repo and worktree
     assert_eq!(failed.len(), 0, "Failed repos: {failed:?}");
@@ -624,7 +625,7 @@ fn test_integration_worktree_with_changes() {
         ..Default::default()
     };
 
-    let (repos, _failed) = args.find_repositories();
+    let (repos, _failed) = scan::find_repositories(&args);
 
     // Find worktree
     let worktree = repos.iter().find(|r| r.is_worktree).unwrap();
@@ -652,7 +653,7 @@ fn test_integration_scanning_a_repository_directly_shows_its_name() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, failed) = scanned_directly.find_repositories();
+    let (repos, failed) = scan::find_repositories(&scanned_directly);
 
     assert_eq!(failed.len(), 0);
     assert_eq!(repos.len(), 1);
@@ -667,7 +668,7 @@ fn test_integration_scanning_a_repository_directly_shows_its_name() {
         depth: 1,
         ..Default::default()
     };
-    let (from_parent, _) = scanned_from_parent.find_repositories();
+    let (from_parent, _) = scan::find_repositories(&scanned_from_parent);
     assert_eq!(from_parent[0].repo_path, repos[0].repo_path);
 
     // The absolute location is still available in the dedicated path field (`--path`).
@@ -699,7 +700,7 @@ fn test_integration_depth_edge_values() {
             depth,
             ..Default::default()
         };
-        let (repos, _) = args.find_repositories();
+        let (repos, _) = scan::find_repositories(&args);
         repos.len()
     };
 
@@ -753,7 +754,7 @@ fn test_integration_unlimited_depth_ignores_git_internals() {
         depth: -1,
         ..Default::default()
     };
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert_eq!(failed, Vec::<String>::new());
     assert_eq!(
@@ -789,7 +790,7 @@ fn test_integration_subdir_finds_repo_below_the_scanned_level() {
         depth: 1,
         ..Default::default()
     };
-    let (repos, failed) = without_subdir.find_repositories();
+    let (repos, failed) = scan::find_repositories(&without_subdir);
     assert_eq!(
         repos.len(),
         0,
@@ -804,7 +805,7 @@ fn test_integration_subdir_finds_repo_below_the_scanned_level() {
         subdir: Some("checkout".to_owned()),
         ..Default::default()
     };
-    let (repos, failed) = with_subdir.find_repositories();
+    let (repos, failed) = scan::find_repositories(&with_subdir);
     assert_eq!(failed.len(), 0);
     assert_eq!(repos.len(), 1, "--subdir must find the nested checkout");
     assert_eq!(repos[0].repo_path, "project/checkout");
@@ -816,7 +817,7 @@ fn test_integration_subdir_finds_repo_below_the_scanned_level() {
         subdir: Some("does-not-exist".to_owned()),
         ..Default::default()
     };
-    let (repos, failed) = missing_subdir.find_repositories();
+    let (repos, failed) = scan::find_repositories(&missing_subdir);
     assert_eq!(repos.len(), 0);
     assert_eq!(failed.len(), 0);
 }
@@ -845,7 +846,7 @@ fn test_integration_clean_and_unpushed_against_a_remote() {
     };
 
     // A fresh clone tracks its remote and matches it exactly.
-    let (repos, _) = args.find_repositories();
+    let (repos, _) = scan::find_repositories(&args);
     assert_eq!(repos.len(), 1);
     assert_eq!(repos[0].status, crate::gitinfo::status::Status::Clean);
     assert!(!repos[0].has_unpushed);
@@ -864,7 +865,7 @@ fn test_integration_clean_and_unpushed_against_a_remote() {
         .commit(Some("HEAD"), &sig, &sig, "local commit", &tree, &[&parent])
         .unwrap();
 
-    let (repos, _) = args.find_repositories();
+    let (repos, _) = scan::find_repositories(&args);
     assert_eq!(repos.len(), 1);
     assert_eq!(
         repos[0].status,
@@ -894,7 +895,7 @@ fn test_repository_with_unreadable_history_is_reported_as_failed() {
         depth: 2,
         ..Default::default()
     };
-    let (repos, failed) = args.find_repositories();
+    let (repos, failed) = scan::find_repositories(&args);
 
     assert!(
         repos.iter().any(|r| r.repo_path == "healthy"),
