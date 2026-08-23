@@ -27,7 +27,7 @@ pub fn repositories_table(repos: &[RepoInfo], args: &Args) {
         presets::UTF8_FULL
     };
     table
-        .load_preset(preset)
+        .load_style(preset)
         .set_content_arrangement(ContentArrangement::Dynamic);
 
     let mut header = vec![
@@ -82,7 +82,7 @@ pub fn legend(condensed: bool) {
         presets::UTF8_FULL
     };
     table
-        .load_preset(preset)
+        .load_style(preset)
         .set_content_arrangement(ContentArrangement::Dynamic);
     table.set_header(vec![
         Cell::new("Status").add_attribute(Attribute::Bold),
