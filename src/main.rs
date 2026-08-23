@@ -31,7 +31,7 @@ fn main() -> Result<()> {
 ///
 /// # Arguments
 /// * `args` - The parsed CLI arguments.
-/// * `out` - Where to write generated shell completions to.
+/// * `out` - Where all generated output is written to.
 fn run(args: &Args, out: &mut impl Write) {
     if let Some(shell) = args.completions {
         completions(shell, out);
@@ -39,7 +39,7 @@ fn run(args: &Args, out: &mut impl Write) {
     }
 
     if args.legend {
-        printer::legend(args.condensed);
+        printer::legend(args.condensed, out);
         return;
     }
 
@@ -47,15 +47,15 @@ fn run(args: &Args, out: &mut impl Write) {
     let displayed = args.filter_repos(&repos);
 
     if args.json {
-        printer::json_output(&displayed, &failed_repos);
+        printer::json_output(&displayed, &failed_repos, out);
         return;
     }
 
-    printer::repositories_table(&displayed, args);
+    printer::repositories_table(&displayed, args, out);
     printer::failed_summary(&failed_repos);
     if args.summary {
         // The summary describes the whole scan, not just the filtered selection.
-        printer::summary(&repos, failed_repos.len());
+        printer::summary(&repos, failed_repos.len(), out);
     }
 }
 

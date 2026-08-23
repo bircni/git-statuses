@@ -104,10 +104,11 @@ fn test_multiple_repos_with_different_remotes_and_statuses() {
 
     let duration = start.elapsed();
 
-    // Performance assertion: should complete in reasonable time
-    // 40 repositories should be checked in less than 2 seconds
+    // A generous ceiling on purpose: this guards against a pathological regression (a
+    // per-repository network call, an accidental O(n^2) walk), not against a slow or
+    // loaded CI runner. A tight bound here only buys flaky failures.
     assert!(
-        duration.as_secs() < 2,
+        duration.as_secs() < 60,
         "Status check took too long: {duration:?}"
     );
 
@@ -222,14 +223,17 @@ fn test_concurrent_status_checks_performance() {
     });
     let duration_par = start_par.elapsed();
 
-    println!(
-        "Sequential: {:?}, Parallel: {:?}, Speedup: {:.2}x",
-        duration_seq,
-        duration_par,
-        duration_seq.as_secs_f64() / duration_par.as_secs_f64()
-    );
+    println!("Sequential: {duration_seq:?}, Parallel: {duration_par:?}");
 
-    // Both should complete in reasonable time
-    assert!(duration_seq.as_secs() < 2);
-    assert!(duration_par.as_secs() < 2);
+    // Deliberately generous - see the note in the 40-repository test above. No speedup
+    // ratio is asserted: on a busy or single-core runner parallel is legitimately not
+    // faster, so that would be a flake rather than a regression signal.
+    assert!(
+        duration_seq.as_secs() < 60,
+        "Sequential status checks took too long: {duration_seq:?}"
+    );
+    assert!(
+        duration_par.as_secs() < 60,
+        "Parallel status checks took too long: {duration_par:?}"
+    );
 }

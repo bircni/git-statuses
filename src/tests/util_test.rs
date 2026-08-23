@@ -7,6 +7,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+/// Renders one printer call into a string so tests can assert on real output.
+fn capture(f: impl FnOnce(&mut Vec<u8>)) -> String {
+    let mut buf = Vec::new();
+    f(&mut buf);
+    String::from_utf8(buf).unwrap()
+}
+
 #[test]
 fn test_initialize_logger() {
     initialize_logger().unwrap();
@@ -51,8 +58,16 @@ fn test_print_repositories_and_summary() {
         ..Default::default()
     };
     let repos = vec![repo];
-    printer::repositories_table(&repos, &args);
-    printer::summary(&repos, 0);
+    let table = capture(|w| printer::repositories_table(&repos, &args, w));
+    assert!(
+        table.contains("dummy"),
+        "the repository must appear in the table, got:\n{table}"
+    );
+    let summary = capture(|w| printer::summary(&repos, 0, w));
+    assert!(
+        summary.contains("Total repositories:   1"),
+        "the summary must count the repository, got:\n{summary}"
+    );
 }
 
 #[test]
@@ -95,7 +110,11 @@ fn test_print_repositories_with_remote() {
         ..Default::default()
     };
     let repos = vec![repo];
-    printer::repositories_table(&repos, &args);
+    let rendered = capture(|w| printer::repositories_table(&repos, &args, w));
+    assert!(
+        rendered.contains("Remote"),
+        "`--remote` must add the Remote column, got:\n{rendered}"
+    );
 }
 
 // New tests for GitPathExt trait
@@ -155,24 +174,6 @@ fn test_git_path_ext_dir_name_unicode() {
 
     let emoji_path = Path::new("/home/user/🚀-repo");
     assert_eq!(emoji_path.dir_name(), "🚀-repo");
-}
-
-#[test]
-fn test_find_repositories_basic_functionality() {
-    let temp = TempDir::new().unwrap();
-
-    // Test basic find_repositories functionality
-    let args = Args {
-        dir: temp.path().to_path_buf(),
-        depth: 1,
-        ..Default::default()
-    };
-
-    let (repos, failed) = args.find_repositories();
-
-    // Should complete without error (empty dir)
-    assert_eq!(failed.len(), 0);
-    assert!(repos.is_empty());
 }
 
 #[test]

@@ -1,8 +1,11 @@
-use std::{borrow::Cow, ffi::OsStr, path::PathBuf, sync::Arc};
+use std::{
+    borrow::Cow,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use clap::Parser;
 use clap_complete::Shell;
-use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use walkdir::WalkDir;
 
@@ -77,18 +80,16 @@ impl Args {
     /// A tuple containing:
     /// - A vector of `RepoInfo` containing details about each found repository.
     /// - A vector of strings of failed repositories (those that could not be opened or processed).
-    #[expect(
-        clippy::cast_sign_loss,
-        reason = "We check i32 to be non-negative, so casting to usize is safe"
-    )]
     pub fn find_repositories(&self) -> (Vec<RepoInfo>, Vec<String>) {
         let walker = {
             let mut walk = WalkDir::new(&self.dir).min_depth(0).follow_links(false);
 
             // Any negative depth means "no limit"; `-1` is just the documented spelling.
             // A depth of 0 would find nothing at all, so it is treated like 1.
-            if self.depth >= 0 {
-                walk = walk.max_depth(self.depth.max(1) as usize);
+            if self.depth >= 0
+                && let Ok(depth) = usize::try_from(self.depth.max(1))
+            {
+                walk = walk.max_depth(depth);
             }
 
             // Never descend into a repository's own git directory. Nothing inside it is a
@@ -101,55 +102,57 @@ impl Args {
                 .collect::<Vec<_>>()
         };
 
-        let repos: Arc<RwLock<Vec<RepoInfo>>> = Arc::new(RwLock::new(Vec::new()));
-        let failed_repos: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
+        // The scan root never changes, so resolve it once here instead of once per
+        // repository inside `RepoInfo::new`.
+        let root = self.dir.canonicalize().unwrap_or_else(|_| self.dir.clone());
 
-        walker.par_iter().for_each(|entry| {
-            let orig_path = entry.path();
-            let repo_name = orig_path.dir_name();
-            let path_buf = {
-                if orig_path.is_git_directory() || orig_path.is_git_worktree() {
-                    orig_path.to_path_buf()
-                } else if let Some(subdir) = &self.subdir {
-                    let subdir_path = orig_path.join(subdir);
-                    if subdir_path.is_git_directory() || subdir_path.is_git_worktree() {
-                        subdir_path
-                    } else {
-                        // If the subdir does not exist, skip this directory
-                        return;
-                    }
-                } else {
-                    // If no subdir is specified and the path is not a git directory, skip it
-                    return;
-                }
-            };
-            match git2::Repository::open(path_buf.as_path()) {
-                Ok(mut git_repo) => {
-                    if let Ok(repo) = RepoInfo::new(
-                        &mut git_repo,
-                        &repo_name,
-                        self.remote,
-                        self.fetch,
-                        self.fast_forward,
-                        &self.dir,
-                    ) {
-                        repos.write().push(repo);
-                    } else {
-                        failed_repos.write().push(repo_name);
-                    }
-                }
-                Err(e) => {
-                    log::debug!("Failed to open repository at {}: {}", path_buf.display(), e);
-                    failed_repos.write().push(path_buf.dir_name());
-                }
+        let scanned = walker
+            .par_iter()
+            .filter_map(|entry| self.scan_entry(entry.path(), &root))
+            .collect::<Vec<_>>();
+
+        let mut repos = Vec::with_capacity(scanned.len());
+        let mut failed_repos = Vec::new();
+        for result in scanned {
+            match result {
+                Ok(repo) => repos.push(repo),
+                Err(name) => failed_repos.push(name),
             }
-        });
+        }
 
-        let mut repos = repos.read().to_vec();
-        let mut failed_repos = failed_repos.read().to_vec();
         repos.sort_by_key(|r| r.repo_path.to_lowercase());
         failed_repos.sort_by_key(|r| r.to_lowercase());
         (repos, failed_repos)
+    }
+
+    /// Resolves a single walked directory into a repository result.
+    ///
+    /// # Returns
+    /// `None` if the directory is not a repository the user asked about, `Err` with the
+    /// directory name if it is one but could not be read, and `Ok` otherwise.
+    fn scan_entry(&self, orig_path: &Path, root: &Path) -> Option<Result<RepoInfo, String>> {
+        let path_buf = if orig_path.is_git_directory() {
+            orig_path.to_path_buf()
+        } else {
+            // Without a `--subdir` there is nowhere else to look, and if the subdir is not
+            // a repository either then this directory is simply not one.
+            let subdir_path = orig_path.join(self.subdir.as_ref()?);
+            subdir_path.is_git_directory().then_some(subdir_path)?
+        };
+
+        match git2::Repository::open(&path_buf) {
+            Ok(mut git_repo) => Some(
+                RepoInfo::new(&mut git_repo, &orig_path.dir_name(), self, root).map_err(|e| {
+                    let name = orig_path.dir_name();
+                    log::debug!("Failed to read repository `{name}`: {e}");
+                    name
+                }),
+            ),
+            Err(e) => {
+                log::debug!("Failed to open repository at {}: {e}", path_buf.display());
+                Some(Err(path_buf.dir_name()))
+            }
+        }
     }
 
     /// Applies the output filters (currently only `--non-clean`) to a scan result.

@@ -1,7 +1,4 @@
-use std::{
-    path::{self},
-    process::Command,
-};
+use std::{path, process::Command};
 
 use git2::{Branch, Repository, StatusOptions};
 
@@ -96,11 +93,7 @@ pub fn repo_name_from_url(url: &str) -> Option<String> {
 /// # Returns
 /// An `Option<String>` containing the repository name if found, or `None` if not.
 fn get_repo_name(repo: &Repository) -> Option<String> {
-    let remote_name = get_remote_name(repo)?;
-    let remote = repo.find_remote(&remote_name).ok()?;
-    let url = remote.url().ok()?;
-
-    repo_name_from_url(url)
+    repo_name_from_url(&get_remote_url(repo)?)
 }
 
 /// Returns the current branch name or a fallback if not available.
@@ -178,16 +171,25 @@ pub fn get_total_commits(repo: &Repository) -> anyhow::Result<usize> {
     Ok(revwalk.count())
 }
 
-/// Returns the number of changed (unstaged, staged or untracked) files.
-pub fn get_changed_count(repo: &Repository) -> usize {
+/// Counts the changed (staged, unstaged or untracked) entries in a status list.
+///
+/// Takes an already-collected `Statuses` so the caller that decides clean-vs-dirty can
+/// reuse its own walk instead of asking the repository a second time.
+pub fn count_changed(statuses: &git2::Statuses<'_>) -> usize {
+    statuses
+        .iter()
+        .filter(|e| !e.status().is_ignored() && e.status().intersects(CHANGED))
+        .count()
+}
+
+/// The `StatusOptions` used everywhere a working directory is inspected.
+///
+/// Shared so the clean/dirty decision, the change counter and any future caller can never
+/// disagree about which entries git is asked to report.
+pub fn status_options() -> StatusOptions {
     let mut opts = StatusOptions::new();
     opts.include_untracked(true).include_ignored(false);
-    repo.statuses(Some(&mut opts)).map_or(0, |statuses| {
-        statuses
-            .iter()
-            .filter(|e| !e.status().is_ignored() && e.status().intersects(CHANGED))
-            .count()
-    })
+    opts
 }
 
 /// Returns the remote URL for the first available remote (preferring "origin"), if available.

@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use comfy_table::Cell;
-use git2::{Repository, RepositoryState, StatusOptions};
+use git2::{Repository, RepositoryState};
 use strum_macros::EnumIter;
 
 use crate::gitinfo;
@@ -12,7 +12,7 @@ pub enum Status {
     /// The repository is clean, with no changes or untracked files.
     Clean,
     /// The repository has changes or untracked files.
-    Dirty(usize), // Number of untracked files
+    Dirty(usize), // Number of changed files (staged, unstaged and untracked)
     /// The repository is in a merge state.
     Merge,
     /// The repository is in a revert state.
@@ -61,17 +61,16 @@ impl Status {
         }
 
         // Step 2: Check working directory status
-        let mut opts = StatusOptions::new();
-        opts.include_untracked(true).include_ignored(false);
-
-        repo.statuses(Some(&mut opts))
+        repo.statuses(Some(&mut gitinfo::status_options()))
             .map_or(Self::Unknown, |statuses| {
-                if statuses
-                    .iter()
-                    .any(|e| !e.status().is_ignored() && e.status().intersects(gitinfo::CHANGED))
-                {
+                // Count in the pass that already decides dirty/clean. Asking the repository
+                // for its statuses a second time just to reach the same number re-walks the
+                // whole index and working directory, which is the most expensive thing this
+                // tool does per repository.
+                let changed = gitinfo::count_changed(&statuses);
+                if changed > 0 {
                     // Dirty working directory – report how many changes
-                    Self::Dirty(gitinfo::get_changed_count(repo))
+                    Self::Dirty(changed)
                 } else {
                     // Clean working directory – check branch push state
                     gitinfo::get_branch_push_status(repo)

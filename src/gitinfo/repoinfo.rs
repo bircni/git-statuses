@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use git2::Repository;
 
 use crate::{
+    cli::Args,
     gitinfo::{self, status::Status},
     util::GitPathExt as _,
 };
@@ -48,9 +49,9 @@ impl RepoInfo {
     /// Creates a new `RepoInfo` instance.
     /// # Arguments
     /// * `repo` - The Git repository to gather information from.
-    /// * `show_remote` - Whether to include the remote URL in the info.
-    /// * `fetch` - Whether to run a fetch operation before gathering info.
-    /// * `path` - The path to the repository directory.
+    /// * `name` - Fallback name, used when the repository has no remote to derive one from.
+    /// * `args` - CLI arguments; `--remote`, `--fetch` and `--ff` are read from here.
+    /// * `root` - The already-canonicalized scan root, used to build the relative path.
     ///
     /// # Returns
     /// A `RepoInfo` instance containing the repository's status information.
@@ -63,22 +64,20 @@ impl RepoInfo {
     pub fn new(
         repo: &mut Repository,
         name: &str,
-        show_remote: bool,
-        fetch: bool,
-        merge: bool,
-        dir: &Path,
+        args: &Args,
+        root: &Path,
     ) -> anyhow::Result<Self> {
         let name = gitinfo::get_repo_name(repo).unwrap_or_else(|| name.to_owned());
 
         // Fetching and merging must happen before any state is gathered, otherwise the
         // reported ahead/behind counts, commit count and status describe the pre-merge
         // repository and contradict the fast-forward marker shown next to them.
-        if (fetch || merge)
+        if (args.fetch || args.fast_forward)
             && let Err(e) = gitinfo::fetch_origin(repo)
         {
             log::warn!("Failed to fetch for `{name}`: {e}");
         }
-        let fast_forwarded = merge
+        let fast_forwarded = args.fast_forward
             && gitinfo::merge_ff(repo).unwrap_or_else(|e| {
                 log::warn!("Failed to fast-forward `{name}`: {e}");
                 false
@@ -89,7 +88,7 @@ impl RepoInfo {
         let commits = gitinfo::get_total_commits(repo)?;
         let status = Status::new(repo);
         let has_unpushed = ahead > 0;
-        let remote_url = if show_remote {
+        let remote_url = if args.remote {
             gitinfo::get_remote_url(repo)
         } else {
             None
@@ -97,8 +96,7 @@ impl RepoInfo {
         let path = gitinfo::get_repo_path(repo);
         let stash_count = gitinfo::get_stash_count(repo);
         let repo_path = path.canonicalize().unwrap_or_else(|_| path.clone());
-        let root_path = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
-        let repo_path_relative = repo_path.strip_prefix(&root_path).unwrap_or(&repo_path);
+        let repo_path_relative = repo_path.strip_prefix(root).unwrap_or(&repo_path);
         // The scanned directory is the repository itself when git-statuses is run from
         // inside one, which leaves the relative path empty. Fall back to the directory
         // name, so the column reads like it would for a repository one level down instead
@@ -143,13 +141,17 @@ impl RepoInfo {
     /// # Returns
     /// A formatted string showing status and stash count if present.
     pub fn format_status_with_stash_and_ff(&self) -> String {
-        let mut status_str = self.status.to_string();
+        use std::fmt::Write as _;
+
+        let mut status = self.status.to_string();
         if self.stash_count > 0 {
-            status_str = format!("{status_str} ({}*)", self.stash_count);
+            // Writing into the buffer keeps this to one allocation; `format!` per suffix
+            // would build and throw away a fresh `String` each time.
+            let _ = write!(status, " ({}*)", self.stash_count);
         }
         if self.fast_forwarded {
-            status_str = format!("{status_str} ↑↑");
+            status.push_str(" ↑↑");
         }
-        status_str
+        status
     }
 }

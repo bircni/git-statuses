@@ -1,11 +1,20 @@
 use std::path::PathBuf;
 
+use strum::IntoEnumIterator as _;
+
 use crate::cli::Args;
 use crate::gitinfo::repoinfo::RepoInfo;
 use crate::gitinfo::status::Status;
 use crate::printer::{
     failed_summary, json_output, json_value, legend, repositories_table, summary,
 };
+
+/// Renders one printer call into a string so tests can assert on real output.
+fn capture(f: impl FnOnce(&mut Vec<u8>)) -> String {
+    let mut buf = Vec::new();
+    f(&mut buf);
+    String::from_utf8(buf).unwrap()
+}
 
 #[test]
 fn test_repositories_table_empty() {
@@ -15,8 +24,11 @@ fn test_repositories_table_empty() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Assert that no panic occurs and no output is generated
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    assert!(
+        rendered.is_empty(),
+        "an empty scan must print no table at all, got: {rendered}"
+    );
 }
 
 #[test]
@@ -43,14 +55,51 @@ fn test_repositories_table_with_data() {
         remote: true,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Assert that the table is printed correctly
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    for expected in [
+        "Directory",
+        "Branch",
+        "Local",
+        "Commits",
+        "Status",
+        "Remote",
+        "repo1",
+        "main",
+        "↑1 ↓0",
+        "10",
+        "Dirty (2)",
+        "https://example.com/repo1.git",
+    ] {
+        assert!(
+            rendered.contains(expected),
+            "table must contain `{expected}`, got:\n{rendered}"
+        );
+    }
+    assert!(
+        !rendered.contains("Path"),
+        "the Path column must stay hidden without `--path`, got:\n{rendered}"
+    );
 }
 
 #[test]
 fn test_print_legend() {
-    legend(false);
-    // Assert that the legend is printed correctly
+    let rendered = capture(|w| legend(false, w));
+    // Every status must be documented, otherwise the legend silently goes stale when a
+    // new variant is added.
+    for status in Status::iter() {
+        assert!(
+            rendered.contains(&status.to_string()),
+            "legend must list `{status}`, got:\n{rendered}"
+        );
+        assert!(
+            rendered.contains(status.description()),
+            "legend must describe `{status}`, got:\n{rendered}"
+        );
+    }
+    assert!(
+        rendered.contains("⎇ indicates a Git worktree"),
+        "legend must explain the worktree marker, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -94,8 +143,15 @@ fn test_repositories_table_with_stashes_and_local_only() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Assert that stash info and local-only status are displayed correctly
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    assert!(
+        rendered.contains("Clean (2*)"),
+        "a stash count must be shown next to the status, got:\n{rendered}"
+    );
+    assert!(
+        rendered.contains("local-only"),
+        "a branch without upstream must render as local-only, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -122,8 +178,15 @@ fn test_repositories_table_with_path_option() {
         path: true,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Should include path column
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    assert!(
+        rendered.contains("Path") && rendered.contains("/very/long/path/to/repository"),
+        "`--path` must add the Path column with the repository path, got:\n{rendered}"
+    );
+    assert!(
+        rendered.contains("local-only"),
+        "a branch without upstream must render as local-only, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -152,8 +215,26 @@ fn test_repositories_table_condensed_layout() {
         path: true,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Should use condensed table format
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    for expected in [
+        "Directory",
+        "Remote",
+        "Path",
+        "repo",
+        "develop",
+        "Merge (1*)",
+    ] {
+        assert!(
+            rendered.contains(expected),
+            "condensed table must contain `{expected}`, got:\n{rendered}"
+        );
+    }
+    // The condensed preset drops the separator line drawn between rows; with a single row
+    // there is none to drop, so only the multi-row case can tell the presets apart.
+    assert!(
+        !rendered.contains('╌'),
+        "the condensed preset must not draw inter-row separators, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -201,7 +282,11 @@ fn test_repositories_table_non_clean_filter() {
     let displayed = args.filter_repos(&repos);
     assert_eq!(displayed.len(), 1);
     assert_eq!(displayed[0].name, "dirty-repo");
-    repositories_table(&displayed, &args);
+    let rendered = capture(|w| repositories_table(&displayed, &args, w));
+    assert!(
+        rendered.contains("dirty-repo") && !rendered.contains("clean-repo"),
+        "`--non-clean` must show only the dirty repository, got:\n{rendered}"
+    );
 }
 
 /// Sorting is the responsibility of `Args::find_repositories`, which hands the printer an
@@ -263,8 +348,15 @@ fn test_repositories_table_renders_rows_in_given_order() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
     // The printer must not reorder what it was given.
+    let zebra = rendered.find("zebra-repo").unwrap();
+    let alpha = rendered.find("Alpha-Repo").unwrap();
+    let beta = rendered.find("beta-repo").unwrap();
+    assert!(
+        zebra < alpha && alpha < beta,
+        "the printer must keep the order it was given, got:\n{rendered}"
+    );
     assert_eq!(repos[0].name, "zebra-repo");
     assert_eq!(repos[1].name, "Alpha-Repo");
     assert_eq!(repos[2].name, "beta-repo");
@@ -327,14 +419,24 @@ fn test_repositories_table_various_statuses() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
-    // Should display all different status types with appropriate colors
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    for repo in &repos {
+        assert!(
+            rendered.contains(&repo.status.to_string()),
+            "status `{}` must appear in the table, got:\n{rendered}",
+            repo.status
+        );
+    }
 }
 
 #[test]
 fn test_legend_condensed() {
-    legend(true);
-    // Should print condensed legend format
+    let rendered = capture(|w| legend(true, w));
+    assert_ne!(
+        rendered,
+        capture(|w| legend(false, w)),
+        "the condensed legend must differ from the full one"
+    );
 }
 
 #[test]
@@ -390,7 +492,20 @@ fn test_summary_comprehensive() {
         },
     ];
 
-    summary(&repos, 1); // 1 failed repo
+    let rendered = capture(|w| summary(&repos, 1, w)); // 1 failed repo
+    for expected in [
+        "Total repositories:   3",
+        "Clean:                2",
+        "With changes:         1",
+        "With unpushed:        1",
+        "With stashes:         2",
+        "Failed to process:    1",
+    ] {
+        assert!(
+            rendered.contains(expected),
+            "summary must report `{expected}`, got:\n{rendered}"
+        );
+    }
 
     // Should show:
     // - 3 total repos
@@ -424,10 +539,22 @@ fn test_failed_summary_multiple() {
 fn test_summary_edge_cases() {
     // Test with no repos
     let empty_repos: Vec<RepoInfo> = vec![];
-    summary(&empty_repos, 0);
+    let rendered = capture(|w| summary(&empty_repos, 0, w));
+    assert!(
+        rendered.contains("Total repositories:   0"),
+        "an empty scan must still report a total, got:\n{rendered}"
+    );
+    assert!(
+        !rendered.contains("Failed to process"),
+        "the failed line must be omitted when nothing failed, got:\n{rendered}"
+    );
 
     // Test with only failed repos
-    summary(&empty_repos, 5);
+    let rendered = capture(|w| summary(&empty_repos, 5, w));
+    assert!(
+        rendered.contains("Failed to process:    5"),
+        "failures must be reported, got:\n{rendered}"
+    );
 
     // Test with mixed edge cases
     let edge_repos = vec![RepoInfo {
@@ -446,7 +573,12 @@ fn test_summary_edge_cases() {
         repo_path: "unknown-status".to_owned(),
         is_worktree: false,
     }];
-    summary(&edge_repos, 0);
+    let rendered = capture(|w| summary(&edge_repos, 0, w));
+    assert!(
+        rendered.contains("Total repositories:   1")
+            && rendered.contains("Local-only branches:  1"),
+        "the summary must count a local-only repository, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -472,7 +604,11 @@ fn test_repositories_table_marks_worktree_rows() {
         depth: 1,
         ..Default::default()
     };
-    repositories_table(&repos, &args);
+    let rendered = capture(|w| repositories_table(&repos, &args, w));
+    assert!(
+        rendered.contains("⎇ worktree-repo"),
+        "a worktree must be marked with ⎇ in the Directory column, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -494,11 +630,18 @@ fn test_json_output_smoke() {
         is_worktree: false,
     }];
     let failed = vec!["broken-repo".to_owned()];
-    json_output(&repos, &failed);
+    let rendered = capture(|w| json_output(&repos, &failed, w));
 
     let value = json_value(&repos, &failed);
     assert_eq!(value["repositories"][0]["name"], "json-repo");
     assert_eq!(value["failed"][0], "broken-repo");
+    // What is printed must be exactly the value the tests assert against, otherwise these
+    // assertions say nothing about the real `--json` output.
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&rendered).unwrap(),
+        value,
+        "`json_output` must print `json_value` verbatim"
+    );
 }
 
 fn repo_named(name: &str, status: Status) -> RepoInfo {
@@ -598,5 +741,9 @@ fn test_non_clean_filter_removing_everything_prints_no_repositories() {
     let displayed = args.filter_repos(&repos);
     assert!(displayed.is_empty());
     // Hits the "No repositories found." branch rather than rendering an empty table.
-    repositories_table(&displayed, &args);
+    let rendered = capture(|w| repositories_table(&displayed, &args, w));
+    assert!(
+        rendered.is_empty(),
+        "a fully filtered scan must print no table, got:\n{rendered}"
+    );
 }
