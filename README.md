@@ -74,6 +74,13 @@ The tool prints a table with the following columns:
 - Status (clean/dirty)
 - Ahead/Behind
 
+The report goes to stdout and diagnostics go to stderr, so `--json` can be piped
+straight into another tool:
+
+```sh
+git-statuses --json | jq '.repositories[] | select(.status != "Clean")'
+```
+
 ## Development
 
 - Requires Rust 1.88+ (edition 2024)
