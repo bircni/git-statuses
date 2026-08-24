@@ -3,6 +3,8 @@ on:
   push:
     tags:
       - "*.*.*"
+permissions:
+  contents: read
 jobs:
   create-windows-binaries:
     runs-on: windows-latest
@@ -118,6 +120,8 @@ jobs:
 
   deploy:
     needs: [create-windows-binaries, create-unix-binaries]
+    permissions:
+      contents: write
 
     runs-on: ubuntu-latest
 
