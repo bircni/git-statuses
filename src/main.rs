@@ -1,6 +1,8 @@
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    process::ExitCode,
+};
 
-use anyhow::Result;
 use clap::{CommandFactory as _, Parser as _};
 use clap_complete::Shell;
 
@@ -14,42 +16,68 @@ mod scan;
 mod tests;
 mod util;
 
+/// Exit code used when at least one repository could not be processed.
+const EXIT_FAILED_REPOS: u8 = 1;
+
 /// Entry point for the git-statuses CLI tool.
 /// Parses arguments, scans for repositories, prints their status and a summary.
-fn main() -> Result<()> {
-    util::initialize_logger()?;
+fn main() -> ExitCode {
+    if let Err(e) = util::initialize_logger() {
+        eprintln!("{e:?}");
+        return ExitCode::FAILURE;
+    }
 
-    run(&Args::parse(), &mut io::stdout());
+    let outcome = run(&Args::parse(), &mut io::stdout());
 
-    Ok(())
+    // A scan that could not read some of the repositories it found is not a success: a
+    // caller piping this into a script has no other way to notice.
+    if outcome.failed > 0 {
+        ExitCode::from(EXIT_FAILED_REPOS)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// What a run ended up reporting.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Outcome {
+    /// Number of repositories that were found but could not be processed.
+    pub failed: usize,
 }
 
 /// Runs the tool for the given arguments.
 ///
 /// Split out of `main` so that it can be driven from tests without spawning a process.
 /// Repositories that cannot be read are collected into the failed list rather than
-/// aborting the scan, so this cannot fail.
+/// aborting the scan, so this cannot fail - it reports what happened instead.
 ///
 /// # Arguments
 /// * `args` - The parsed CLI arguments.
 /// * `out` - Where all generated output is written to.
-fn run(args: &Args, out: &mut impl Write) {
+///
+/// # Returns
+/// What the run reported, which decides the process exit code.
+fn run(args: &Args, out: &mut impl Write) -> Outcome {
     if let Some(shell) = args.completions {
         completions(shell, out);
-        return;
+        return Outcome::default();
     }
 
     if args.legend {
         printer::legend(args.condensed, out);
-        return;
+        return Outcome::default();
     }
 
     let (repos, failed_repos) = scan::find_repositories(args);
     let displayed = args.filter_repos(&repos);
 
+    let outcome = Outcome {
+        failed: failed_repos.len(),
+    };
+
     if args.json {
         printer::json_output(&displayed, &failed_repos, out);
-        return;
+        return outcome;
     }
 
     printer::repositories_table(&displayed, args, out);
@@ -58,6 +86,8 @@ fn run(args: &Args, out: &mut impl Write) {
         // The summary describes the whole scan, not just the filtered selection.
         printer::summary(&repos, failed_repos.len(), out);
     }
+
+    outcome
 }
 
 /// Writes the shell completion script for `shell`.

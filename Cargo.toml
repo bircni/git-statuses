@@ -8,7 +8,7 @@ edition = "2024"
 license = "MIT"
 readme = "README.md"
 keywords = ["git", "status", "repository", "plugin", "cli"]
-exclude = ["src/tests/*"]
+exclude = ["src/tests/*", "tests/*"]
 
 [dependencies]
 anyhow = "1"

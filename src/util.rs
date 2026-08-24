@@ -6,6 +6,10 @@ use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
 
 /// Initializes the logger for the application.
 ///
+/// All diagnostics go to stderr. `TerminalMode::Mixed` would put anything below `Warn` on
+/// stdout, where it interleaves with the report itself and makes `--json` unparsable for
+/// anything reading the stream.
+///
 /// # Errors
 /// Returns an error if logger initialization fails.
 pub fn initialize_logger() -> anyhow::Result<()> {
@@ -17,7 +21,7 @@ pub fn initialize_logger() -> anyhow::Result<()> {
         ConfigBuilder::new()
             .add_filter_allow_str("git_statuses")
             .build(),
-        TerminalMode::Mixed,
+        TerminalMode::Stderr,
         ColorChoice::Auto,
     )
     .context("Failed to initialize logger")
