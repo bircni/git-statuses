@@ -227,8 +227,16 @@ pub fn get_remote_url(repo: &Repository) -> Option<String> {
         .and_then(|r| r.url().map(ToOwned::to_owned).ok())
 }
 
-/// Executes a fetch operation for the first available remote (preferring "origin") to update upstream information.
-pub fn fetch_origin(repo: &Repository) -> anyhow::Result<()> {
+/// Fetches from the first available remote (preferring "origin") to update upstream information.
+///
+/// Shells out to `git` rather than using `git2` so that the user's credential helpers,
+/// SSH agent and proxy configuration apply exactly as they do on the command line;
+/// reimplementing that against `git2` would mean reimplementing authentication.
+///
+/// # Errors
+/// Returns an error if the repository has no remote, no directory to run in, or if `git
+/// fetch` itself fails.
+pub fn fetch_remote(repo: &Repository) -> anyhow::Result<()> {
     let remote_name = get_remote_name(repo).ok_or_else(|| anyhow::anyhow!("No remotes found"))?;
     // `repo.path()` is the git directory. For a worktree that is
     // `<main>/.git/worktrees/<name>`, whose parent is not a working directory at all, so
