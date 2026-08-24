@@ -87,3 +87,41 @@ fn table_output_is_the_only_thing_on_stdout() {
         "log records must not appear on stdout, got:\n{stdout}"
     );
 }
+
+/// A repository that cannot be processed makes the run fail, so scripts can notice.
+#[test]
+fn unreadable_repositories_make_the_process_exit_non_zero() {
+    let temp = fixture();
+    let output = Command::new(BIN)
+        .args(["--depth", "2"])
+        .arg(temp.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "a scan with an unreadable repository must exit 1"
+    );
+}
+
+/// A scan where everything was readable exits zero.
+#[test]
+fn a_healthy_scan_exits_zero() {
+    let temp = TempDir::new().unwrap();
+    let healthy = temp.path().join("healthy");
+    fs::create_dir_all(&healthy).unwrap();
+    git2::Repository::init(&healthy).unwrap();
+
+    let output = Command::new(BIN)
+        .args(["--depth", "2"])
+        .arg(temp.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "a scan with nothing broken must exit 0"
+    );
+}
