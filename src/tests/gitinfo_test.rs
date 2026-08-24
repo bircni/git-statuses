@@ -169,11 +169,11 @@ fn test_get_ahead_behind_error_cases() {
 }
 
 #[test]
-fn test_fetch_origin_failure() {
+fn test_fetch_remote_failure() {
     let (_tmp, repo) = init_temp_repo();
     // Simulate a fetch failure by pointing to a non-existent remote
     repo.remote("origin", "https://invalid-url").unwrap();
-    let result = gitinfo::fetch_origin(&repo);
+    let result = gitinfo::fetch_remote(&repo);
     assert!(result.is_err());
 }
 

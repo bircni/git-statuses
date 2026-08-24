@@ -13,7 +13,7 @@ use crate::{
     clippy::struct_excessive_bools,
     reason = "This structure holds repository state flags that are naturally represented as booleans"
 )]
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, Clone)]
 pub struct RepoInfo {
     /// The directory name of the repository.
     pub name: String,
@@ -73,7 +73,7 @@ impl RepoInfo {
         // reported ahead/behind counts, commit count and status describe the pre-merge
         // repository and contradict the fast-forward marker shown next to them.
         if (args.fetch || args.fast_forward)
-            && let Err(e) = gitinfo::fetch_origin(repo)
+            && let Err(e) = gitinfo::fetch_remote(repo)
         {
             log::warn!("Failed to fetch for `{name}`: {e}");
         }
