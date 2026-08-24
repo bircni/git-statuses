@@ -81,6 +81,13 @@ straight into another tool:
 git-statuses --json | jq '.repositories[] | select(.status != "Clean")'
 ```
 
+### Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| `0`  | The scan completed and every repository found was readable. |
+| `1`  | At least one repository was found but could not be processed. The names are listed on stderr. |
+
 ## Development
 
 - Requires Rust 1.88+ (edition 2024)

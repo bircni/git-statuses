@@ -250,3 +250,46 @@ fn test_completions_for_every_supported_shell() {
         );
     }
 }
+
+/// A scan that finds an unreadable repository reports it, so the caller can exit non-zero.
+#[test]
+fn test_run_reports_unreadable_repositories() {
+    let temp = TempDir::new().unwrap();
+    create_repo(temp.path(), "healthy", false);
+    let broken = temp.path().join("broken");
+    fs::create_dir_all(&broken).unwrap();
+    fs::write(broken.join(".git"), "gitdir: /nowhere").unwrap();
+
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 2,
+        json: true,
+        ..Default::default()
+    };
+
+    let outcome = crate::run(&args, &mut Vec::new());
+    assert_eq!(
+        outcome.failed, 1,
+        "the unreadable directory must be counted as failed"
+    );
+}
+
+/// A scan where everything was readable reports no failures, so the process exits zero.
+#[test]
+fn test_run_reports_no_failures_for_a_healthy_scan() {
+    let temp = TempDir::new().unwrap();
+    create_repo(temp.path(), "healthy", false);
+
+    let args = Args {
+        dir: temp.path().to_path_buf(),
+        depth: 2,
+        ..Default::default()
+    };
+
+    let outcome = crate::run(&args, &mut Vec::new());
+    assert_eq!(
+        outcome,
+        crate::Outcome::default(),
+        "a readable scan must report nothing failed"
+    );
+}
