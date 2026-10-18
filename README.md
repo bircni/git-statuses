@@ -18,7 +18,15 @@ A command-line tool to display the status of multiple Git repositories in a clea
 
 ## Installation
 
-You need [Rust](https://www.rust-lang.org/tools/install) installed.
+With [Homebrew](https://brew.sh) on macOS (Apple Silicon and Intel) or Linux (x86_64):
+
+```sh
+brew install bircni/tap/git-statuses
+```
+
+This also installs the bash, zsh and fish completions.
+
+With Cargo, which needs [Rust](https://www.rust-lang.org/tools/install) installed:
 
 ```sh
 cargo install git-statuses
@@ -45,7 +53,7 @@ Run in any directory to scan for Git repositories:
 ```text
 A tool to display git repository statuses in a table format
 
-Usage: git-statuses.exe [OPTIONS] [DIR]
+Usage: git-statuses [OPTIONS] [DIR]
 
 Arguments:
   [DIR]  Directory to scan [default: .]
@@ -56,11 +64,13 @@ Options:
   -c, --condensed            Use a condensed layout
   -s, --summary              Show a summary of the scan
   -f, --fetch                Run a fetch before scanning to update the repository state Note: This may take a while for large repositories
+  -F, --ff                   Run a fast-forward merge after fetching
   -l, --legend               Print a legend explaining the color codes and statuses used in the output
       --subdir <SUBDIR>      Look in a specific subdir if it exists for each folder This can be useful, if you don't checkout in a folder directly but in a subfolder like `repo-name/checkout`
       --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
   -p, --path                 Show the path to the repository
   -n, --non-clean            Only show non clean repositories
+      --json                 Output in JSON format
   -h, --help                 Print help
   -V, --version              Print version
 ```
@@ -69,10 +79,12 @@ Options:
 
 The tool prints a table with the following columns:
 
-- Path
+- Directory (relative to the scanned directory, `⎇` marks a worktree)
 - Branch
-- Status (clean/dirty)
-- Ahead/Behind
+- Local (commits ahead/behind the upstream, or `local-only`)
+- Commits
+- Status (run `git-statuses --legend` for what each one means)
+- Remote and Path, with `--remote` and `--path`
 
 The report goes to stdout and diagnostics go to stderr, so `--json` can be piped
 straight into another tool:
@@ -90,7 +102,7 @@ git-statuses --json | jq '.repositories[] | select(.status != "Clean")'
 
 ## Development
 
-- Requires Rust 1.88+ (edition 2024)
+- Requires the latest stable Rust (1.99+, edition 2024)
 - Linting: `cargo clippy`
 - Tests: `cargo test`
 
