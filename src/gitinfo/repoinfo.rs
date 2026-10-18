@@ -1,11 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use git2::Repository;
 
 use crate::{
     cli::Args,
     gitinfo::{self, status::Status},
-    util::GitPathExt as _,
 };
 
 /// Holds information about a Git repository for status display.
@@ -43,6 +42,8 @@ pub struct RepoInfo {
     pub repo_path: String,
     /// True if this is a Git worktree
     pub is_worktree: bool,
+    /// True if HEAD is detached, i.e. not on any branch
+    pub is_detached: bool,
 }
 
 impl RepoInfo {
@@ -51,7 +52,7 @@ impl RepoInfo {
     /// * `repo` - The Git repository to gather information from.
     /// * `name` - Fallback name, used when the repository has no remote to derive one from.
     /// * `args` - CLI arguments; `--remote`, `--fetch` and `--ff` are read from here.
-    /// * `root` - The already-canonicalized scan root, used to build the relative path.
+    /// * `repo_path` - The path to show for the repository, relative to the scan root.
     ///
     /// # Returns
     /// A `RepoInfo` instance containing the repository's status information.
@@ -65,7 +66,7 @@ impl RepoInfo {
         repo: &mut Repository,
         name: &str,
         args: &Args,
-        root: &Path,
+        repo_path: &str,
     ) -> anyhow::Result<Self> {
         let name = gitinfo::get_repo_name(repo).unwrap_or_else(|| name.to_owned());
 
@@ -95,18 +96,8 @@ impl RepoInfo {
         };
         let path = gitinfo::get_repo_path(repo);
         let stash_count = gitinfo::get_stash_count(repo);
-        let repo_path = path.canonicalize().unwrap_or_else(|_| path.clone());
-        let repo_path_relative = repo_path.strip_prefix(root).unwrap_or(&repo_path);
-        // The scanned directory is the repository itself when git-statuses is run from
-        // inside one, which leaves the relative path empty. Fall back to the directory
-        // name, so the column reads like it would for a repository one level down instead
-        // of suddenly showing an absolute path.
-        let repo_path = if repo_path_relative.as_os_str().is_empty() {
-            repo_path.dir_name()
-        } else {
-            repo_path_relative.display().to_string()
-        };
         let is_worktree = repo.is_worktree();
+        let is_detached = repo.head_detached().unwrap_or(false);
 
         Ok(Self {
             name,
@@ -121,16 +112,20 @@ impl RepoInfo {
             stash_count,
             is_local_only,
             fast_forwarded,
-            repo_path,
+            repo_path: repo_path.to_owned(),
             is_worktree,
+            is_detached,
         })
     }
 
     /// Formats the local status showing ahead/behind counts or local-only indication.
     /// # Returns
-    /// A formatted string showing ahead/behind counts or local-only indication.
+    /// A formatted string showing ahead/behind counts or local-only indication, or `-` for
+    /// a detached HEAD, which has no branch to compare.
     pub fn format_local_status(&self) -> String {
-        if self.is_local_only {
+        if self.is_detached {
+            "-".to_owned()
+        } else if self.is_local_only {
             "local-only".to_owned()
         } else {
             format!("↑{} ↓{}", self.ahead, self.behind)

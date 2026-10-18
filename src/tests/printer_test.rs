@@ -5,9 +5,7 @@ use strum::IntoEnumIterator as _;
 use crate::cli::Args;
 use crate::gitinfo::repoinfo::RepoInfo;
 use crate::gitinfo::status::Status;
-use crate::printer::{
-    failed_summary, json_output, json_value, legend, repositories_table, summary,
-};
+use crate::printer::{json_output, json_value, legend, repositories_table, summary};
 
 /// Renders one printer call into a string so tests can assert on real output.
 fn capture(f: impl FnOnce(&mut Vec<u8>)) -> String {
@@ -48,6 +46,7 @@ fn test_repositories_table_with_data() {
         fast_forwarded: false,
         repo_path: "repo1".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -120,6 +119,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             fast_forwarded: false,
             repo_path: "repo-with-stash".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "repo-with-upstream".to_owned(),
@@ -136,6 +136,7 @@ fn test_repositories_table_with_stashes_and_local_only() {
             fast_forwarded: false,
             repo_path: "repo-with-upstream".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
     ];
     let args = Args {
@@ -171,6 +172,7 @@ fn test_repositories_table_with_path_option() {
         fast_forwarded: false,
         repo_path: "test-repo".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -191,7 +193,7 @@ fn test_repositories_table_with_path_option() {
 
 #[test]
 fn test_repositories_table_condensed_layout() {
-    let repos = vec![RepoInfo {
+    let mut repos = vec![RepoInfo {
         name: "repo".to_owned(),
         branch: "develop".to_owned(),
         ahead: 2,
@@ -206,7 +208,12 @@ fn test_repositories_table_condensed_layout() {
         fast_forwarded: false,
         repo_path: "repo".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }];
+    // The presets differ in the separator drawn between rows, which takes a second row.
+    let mut second = repos[0].clone();
+    second.repo_path = "other".to_owned();
+    repos.push(second);
     let args = Args {
         dir: ".".into(),
         depth: 1,
@@ -229,11 +236,23 @@ fn test_repositories_table_condensed_layout() {
             "condensed table must contain `{expected}`, got:\n{rendered}"
         );
     }
-    // The condensed preset drops the separator line drawn between rows; with a single row
-    // there is none to drop, so only the multi-row case can tell the presets apart.
     assert!(
         !rendered.contains('╌'),
         "the condensed preset must not draw inter-row separators, got:\n{rendered}"
+    );
+    let full = capture(|w| {
+        repositories_table(
+            &repos,
+            &Args {
+                condensed: false,
+                ..args
+            },
+            w,
+        );
+    });
+    assert!(
+        full.contains('╌'),
+        "the full preset draws a separator between rows, got:\n{full}"
     );
 }
 
@@ -255,6 +274,7 @@ fn test_repositories_table_non_clean_filter() {
             fast_forwarded: false,
             repo_path: "clean-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "dirty-repo".to_owned(),
@@ -271,6 +291,7 @@ fn test_repositories_table_non_clean_filter() {
             fast_forwarded: false,
             repo_path: "dirty-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
     ];
     let args = Args {
@@ -309,6 +330,7 @@ fn test_repositories_table_renders_rows_in_given_order() {
             fast_forwarded: false,
             repo_path: "zebra-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "Alpha-Repo".to_owned(), // Capital letter
@@ -325,6 +347,7 @@ fn test_repositories_table_renders_rows_in_given_order() {
             fast_forwarded: false,
             repo_path: "Alpha-Repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "beta-repo".to_owned(),
@@ -341,6 +364,7 @@ fn test_repositories_table_renders_rows_in_given_order() {
             fast_forwarded: false,
             repo_path: "beta-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
     ];
     let args = Args {
@@ -357,9 +381,6 @@ fn test_repositories_table_renders_rows_in_given_order() {
         zebra < alpha && alpha < beta,
         "the printer must keep the order it was given, got:\n{rendered}"
     );
-    assert_eq!(repos[0].name, "zebra-repo");
-    assert_eq!(repos[1].name, "Alpha-Repo");
-    assert_eq!(repos[2].name, "beta-repo");
 }
 
 #[test]
@@ -380,6 +401,7 @@ fn test_repositories_table_various_statuses() {
             fast_forwarded: false,
             repo_path: "rebase-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "cherry-repo".to_owned(),
@@ -396,6 +418,7 @@ fn test_repositories_table_various_statuses() {
             fast_forwarded: false,
             repo_path: "cherry-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "bisect-repo".to_owned(),
@@ -412,6 +435,7 @@ fn test_repositories_table_various_statuses() {
             fast_forwarded: false,
             repo_path: "bisect-repo".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
     ];
     let args = Args {
@@ -457,6 +481,7 @@ fn test_summary_comprehensive() {
             fast_forwarded: false,
             repo_path: "clean1".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "clean2".to_owned(),
@@ -473,6 +498,7 @@ fn test_summary_comprehensive() {
             fast_forwarded: false,
             repo_path: "clean2".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
         RepoInfo {
             name: "dirty".to_owned(),
@@ -489,6 +515,7 @@ fn test_summary_comprehensive() {
             fast_forwarded: false,
             repo_path: "dirty".to_owned(),
             is_worktree: false,
+            is_detached: false,
         },
     ];
 
@@ -515,24 +542,6 @@ fn test_summary_comprehensive() {
     // - 2 with stashes
     // - 1 local-only
     // - 1 failed
-}
-
-#[test]
-fn test_failed_summary_empty() {
-    let failed_repos: Vec<String> = vec![];
-    failed_summary(&failed_repos);
-    // Should not print anything
-}
-
-#[test]
-fn test_failed_summary_multiple() {
-    let failed_repos = vec![
-        "broken-repo-1".to_owned(),
-        "corrupted-repo-2".to_owned(),
-        "invalid-git-dir".to_owned(),
-    ];
-    failed_summary(&failed_repos);
-    // Should print warning about failed repos
 }
 
 #[test]
@@ -572,6 +581,7 @@ fn test_summary_edge_cases() {
         fast_forwarded: false,
         repo_path: "unknown-status".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }];
     let rendered = capture(|w| summary(&edge_repos, 0, w));
     assert!(
@@ -598,6 +608,7 @@ fn test_repositories_table_marks_worktree_rows() {
         fast_forwarded: false,
         repo_path: "worktree-repo".to_owned(),
         is_worktree: true,
+        is_detached: false,
     }];
     let args = Args {
         dir: ".".into(),
@@ -628,6 +639,7 @@ fn test_json_output_smoke() {
         fast_forwarded: false,
         repo_path: "json-repo".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }];
     let failed = vec!["broken-repo".to_owned()];
     let rendered = capture(|w| json_output(&repos, &failed, w));
@@ -660,6 +672,7 @@ fn repo_named(name: &str, status: Status) -> RepoInfo {
         fast_forwarded: false,
         repo_path: name.to_owned(),
         is_worktree: false,
+        is_detached: false,
     }
 }
 

@@ -75,13 +75,15 @@ fn run(args: &Args, out: &mut impl Write) -> Outcome {
         failed: failed_repos.len(),
     };
 
+    // Goes to stderr, so it is reported in every output mode without touching the report.
+    printer::failed_summary(&failed_repos);
+
     if args.json {
         printer::json_output(&displayed, &failed_repos, out);
         return outcome;
     }
 
     printer::repositories_table(&displayed, args, out);
-    printer::failed_summary(&failed_repos);
     if args.summary {
         // The summary describes the whole scan, not just the filtered selection.
         printer::summary(&repos, failed_repos.len(), out);

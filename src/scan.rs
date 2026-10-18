@@ -43,13 +43,9 @@ pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
             .collect::<Vec<_>>()
     };
 
-    // The scan root never changes, so resolve it once here instead of once per
-    // repository inside `RepoInfo::new`.
-    let root = args.dir.canonicalize().unwrap_or_else(|_| args.dir.clone());
-
     let scanned = walker
         .par_iter()
-        .filter_map(|entry| scan_entry(args, entry.path(), &root))
+        .filter_map(|entry| scan_entry(args, entry.path()))
         .collect::<Vec<_>>();
 
     let mut repos = Vec::with_capacity(scanned.len());
@@ -71,7 +67,7 @@ pub fn find_repositories(args: &Args) -> (Vec<RepoInfo>, Vec<String>) {
 /// # Returns
 /// `None` if the directory is not a repository the user asked about, `Err` with the
 /// directory name if it is one but could not be read, and `Ok` otherwise.
-fn scan_entry(args: &Args, orig_path: &Path, root: &Path) -> Option<Result<RepoInfo, String>> {
+fn scan_entry(args: &Args, orig_path: &Path) -> Option<Result<RepoInfo, String>> {
     let path_buf = if orig_path.is_git_directory() {
         orig_path.to_path_buf()
     } else {
@@ -83,7 +79,13 @@ fn scan_entry(args: &Args, orig_path: &Path, root: &Path) -> Option<Result<RepoI
 
     match git2::Repository::open(&path_buf) {
         Ok(mut git_repo) => Some(
-            RepoInfo::new(&mut git_repo, &orig_path.dir_name(), args, root).map_err(|e| {
+            RepoInfo::new(
+                &mut git_repo,
+                &orig_path.dir_name(),
+                args,
+                &display_path(&path_buf, &args.dir),
+            )
+            .map_err(|e| {
                 let name = orig_path.dir_name();
                 log::debug!("Failed to read repository `{name}`: {e}");
                 name
@@ -91,7 +93,27 @@ fn scan_entry(args: &Args, orig_path: &Path, root: &Path) -> Option<Result<RepoI
         ),
         Err(e) => {
             log::debug!("Failed to open repository at {}: {e}", path_buf.display());
-            Some(Err(path_buf.dir_name()))
+            // Name it after the scanned directory, as a read failure is: with `--subdir`
+            // the opened path ends in the subdir, which is the same for every project.
+            Some(Err(orig_path.dir_name()))
         }
+    }
+}
+
+/// The path shown for a repository found at `location` during a scan of `root`.
+///
+/// Taken from where the walk found it rather than from the repository's working directory,
+/// which git resolves through symlinks: a linked repository would otherwise be shown under
+/// its absolute target path instead of the name it has in the scanned directory.
+fn display_path(location: &Path, root: &Path) -> String {
+    match location.strip_prefix(root) {
+        Ok(relative) if !relative.as_os_str().is_empty() => relative.display().to_string(),
+        // The scanned directory is the repository itself when git-statuses is run from
+        // inside one. Show its name, so the column reads like it would for a repository
+        // one level down instead of being empty.
+        _ => location
+            .canonicalize()
+            .unwrap_or_else(|_| location.to_path_buf())
+            .dir_name(),
     }
 }

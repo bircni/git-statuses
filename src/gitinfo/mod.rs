@@ -1,4 +1,7 @@
-use std::{path, process::Command};
+use std::{
+    path::{self, Path},
+    process::Command,
+};
 
 use git2::{Branch, Repository, StatusOptions};
 
@@ -114,13 +117,15 @@ pub fn get_branch_name(repo: &Repository) -> String {
             return "N/A".to_owned();
         }
         if let Ok(Some(target)) = head.symbolic_target()
-            && let Some(branch) = target.rsplit('/').next()
+            && let Some(branch) = target.strip_prefix("refs/heads/")
         {
             return format!("{branch} (no commits)");
         }
     } else if let Ok(headref) = repo.find_reference("HEAD")
         && let Ok(Some(sym)) = headref.symbolic_target()
-        && let Some(branch) = sym.rsplit('/').next()
+        // Strip the namespace rather than taking the last segment, which would turn
+        // `feature/x` into `x`.
+        && let Some(branch) = sym.strip_prefix("refs/heads/")
     {
         return format!("{branch} (no commits)");
     }
@@ -157,7 +162,8 @@ fn upstream_oid(repo: &Repository, branch_name: &str) -> Option<git2::Oid> {
 }
 
 /// Get the number of commits ahead and behind the upstream branch, and whether the branch is local-only.
-/// If the current branch has no upstream, it returns (0, 0, true).
+/// If the current branch has no upstream, it returns (0, 0, true). A detached HEAD is not on
+/// a branch at all, so it is neither: it returns (0, 0, false).
 /// # Arguments
 /// * `repo` - The Git repository to check for ahead/behind status.
 /// # Returns
@@ -168,6 +174,9 @@ pub fn get_ahead_behind_and_local_status(repo: &Repository) -> (usize, usize, bo
     let Ok(head) = repo.head() else {
         return LOCAL_ONLY;
     };
+    if !head.is_branch() {
+        return (0, 0, false);
+    }
     let (Ok(branch_name), Some(local_oid)) = (head.shorthand(), head.target()) else {
         return LOCAL_ONLY;
     };
@@ -245,11 +254,7 @@ pub fn fetch_remote(repo: &Repository) -> anyhow::Result<()> {
         .workdir()
         .or_else(|| repo.path().parent())
         .ok_or_else(|| anyhow::anyhow!("No working directory found"))?;
-    let output = Command::new("git")
-        .arg("fetch")
-        .arg(&remote_name)
-        .current_dir(path)
-        .output()?;
+    let output = fetch_command(&remote_name, path).output()?;
 
     if !output.status.success() {
         anyhow::bail!(
@@ -260,6 +265,23 @@ pub fn fetch_remote(repo: &Repository) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Builds the `git fetch` invocation for `remote_name`, run in `dir`.
+///
+/// `--fetch` runs one of these per repository in parallel. Git asks for credentials on the
+/// terminal rather than on stdin, so concurrent prompts interleave and block the scan.
+/// `GIT_TERMINAL_PROMPT=0` makes a repository that needs one fail instead, which is reported
+/// as a fetch warning. Credential helpers and the SSH agent still apply; a passphrase prompt
+/// from `ssh` itself is outside git's control.
+pub fn fetch_command(remote_name: &str, dir: &Path) -> Command {
+    let mut command = Command::new("git");
+    command
+        .arg("fetch")
+        .arg(remote_name)
+        .current_dir(dir)
+        .env("GIT_TERMINAL_PROMPT", "0");
+    command
 }
 
 /// Executes a fast-forward merge to update local checkout

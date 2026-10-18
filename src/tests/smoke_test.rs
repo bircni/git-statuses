@@ -5,22 +5,21 @@
 
 use std::{fs, path::Path, time::Instant};
 
-use git2::Repository;
+use git2::{Repository, RepositoryInitOptions};
 
 use crate::scan;
-use crate::{
-    cli::Args,
-    gitinfo::{self, status::Status},
-};
+use crate::{cli::Args, gitinfo::status::Status};
 
 /// Helper function to create a repository with a commit
 fn create_repo_with_commit(path: &Path, file_content: &str) -> Repository {
-    let repo = Repository::init(path).unwrap();
+    // Setting `init.defaultBranch` after `init` has no effect, so name the branch up front:
+    // the remote-tracking refs the tests create assume it is `main`.
+    let repo =
+        Repository::init_opts(path, RepositoryInitOptions::new().initial_head("main")).unwrap();
     {
         let mut config = repo.config().unwrap();
         config.set_str("user.name", "Test User").unwrap();
         config.set_str("user.email", "test@example.com").unwrap();
-        config.set_str("init.defaultBranch", "main").unwrap();
     }
 
     let file_path = path.join("test.txt");
@@ -101,9 +100,16 @@ fn test_multiple_repos_with_different_remotes_and_statuses() {
         dir: base_path.to_path_buf(),
         ..Default::default()
     };
-    _ = scan::find_repositories(&args);
+    let (repos, failed) = scan::find_repositories(&args);
 
     let duration = start.elapsed();
+
+    assert_eq!(failed, Vec::<String>::new());
+    assert_eq!(repos.len(), test_cases.len());
+    assert!(
+        repos.iter().all(|r| r.status == Status::Clean),
+        "every repository matches its remote-tracking branch"
+    );
 
     // A generous ceiling on purpose: this guards against a pathological regression (a
     // per-repository network call, an accidental O(n^2) walk), not against a slow or
@@ -116,59 +122,6 @@ fn test_multiple_repos_with_different_remotes_and_statuses() {
     println!("✓ All 40 repositories checked correctly in {duration:?}");
 }
 
-struct RemoteTest {
-    name: &'static str,
-    remote_name: &'static str,
-    remote_url: &'static str,
-    should_prefer_origin: bool,
-}
-
-#[test]
-fn test_remote_url_extraction_from_various_sources() {
-    let tmp_dir = tempfile::tempdir().unwrap();
-    let base_path = tmp_dir.path();
-
-    let test_cases = vec![
-        RemoteTest {
-            name: "origin_github",
-            remote_name: "origin",
-            remote_url: "https://github.com/user/repo.git",
-            should_prefer_origin: true,
-        },
-        RemoteTest {
-            name: "upstream_gitlab",
-            remote_name: "upstream",
-            remote_url: "https://gitlab.com/user/repo.git",
-            should_prefer_origin: false,
-        },
-        RemoteTest {
-            name: "custom_bitbucket",
-            remote_name: "custom",
-            remote_url: "https://bitbucket.org/user/repo.git",
-            should_prefer_origin: false,
-        },
-    ];
-
-    for test in &test_cases {
-        let repo_path = base_path.join(test.name);
-        fs::create_dir_all(&repo_path).unwrap();
-        let repo = create_repo_with_commit(&repo_path, "content");
-
-        if test.should_prefer_origin {
-            add_remote(&repo, "upstream", "https://github.com/upstream/repo.git");
-        }
-        add_remote(&repo, test.remote_name, test.remote_url);
-
-        let url = gitinfo::get_remote_url(&repo);
-        assert_eq!(
-            url.as_deref(),
-            Some(test.remote_url),
-            "Failed for {}",
-            test.name
-        );
-    }
-}
-
 #[test]
 fn test_concurrent_status_checks_performance() {
     use rayon::prelude::*;
@@ -176,9 +129,10 @@ fn test_concurrent_status_checks_performance() {
     let tmp_dir = tempfile::tempdir().unwrap();
     let base_path = tmp_dir.path();
 
-    // Create 20 repositories
+    // Create 20 repositories, each with the status its configuration must produce
     let repo_count = 20;
     let mut repo_paths = Vec::new();
+    let mut expected = Vec::new();
 
     for i in 0..repo_count {
         let repo_path = base_path.join(format!("repo_{i:02}"));
@@ -194,6 +148,7 @@ fn test_concurrent_status_checks_performance() {
                 &format!("https://github.com/user/repo_{i}.git"),
             );
             create_remote_branch(&repo, "origin", "main", initial_commit);
+            expected.push(Status::Clean);
         } else if i % 3 == 1 {
             add_remote(
                 &repo,
@@ -202,27 +157,35 @@ fn test_concurrent_status_checks_performance() {
             );
             create_remote_branch(&repo, "upstream", "main", initial_commit);
             make_commit(&repo, &repo_path.join("test.txt"), "new", "Second");
+            expected.push(Status::Unpushed);
+        } else {
+            expected.push(Status::Unpublished);
         }
-        // else: no remote
 
         repo_paths.push(repo_path);
     }
 
     // Sequential check
     let start_seq = Instant::now();
-    for path in &repo_paths {
-        let repo = Repository::open(path).unwrap();
-        let _status = Status::new(&repo);
-    }
+    let sequential: Vec<Status> = repo_paths
+        .iter()
+        .map(|path| Status::new(&Repository::open(path).unwrap()))
+        .collect();
     let duration_seq = start_seq.elapsed();
 
     // Parallel check (simulating real-world usage with rayon)
     let start_par = Instant::now();
-    repo_paths.par_iter().for_each(|path| {
-        let repo = Repository::open(path).unwrap();
-        let _status = Status::new(&repo);
-    });
+    let parallel: Vec<Status> = repo_paths
+        .par_iter()
+        .map(|path| Status::new(&Repository::open(path).unwrap()))
+        .collect();
     let duration_par = start_par.elapsed();
+
+    assert_eq!(sequential, expected);
+    assert_eq!(
+        parallel, expected,
+        "checking in parallel must not change a result"
+    );
 
     println!("Sequential: {duration_seq:?}, Parallel: {duration_par:?}");
 

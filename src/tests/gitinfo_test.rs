@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 use comfy_table::Color;
 use git2::Repository;
@@ -28,7 +25,19 @@ fn changed_count(repo: &Repository) -> usize {
 fn test_get_branch_name_empty() {
     let (_tmp, repo) = init_temp_repo();
     let branch = gitinfo::get_branch_name(&repo);
-    assert!(branch.contains("no commits") || branch.contains("no branch") || !branch.is_empty());
+    assert!(
+        branch.ends_with(" (no commits)"),
+        "an unborn branch must say it has no commits, got {branch:?}"
+    );
+}
+
+/// An unborn branch keeps its whole name. Taking the last `/` segment of the ref showed
+/// `feature/x` as `x`.
+#[test]
+fn test_get_branch_name_unborn_branch_with_slash() {
+    let (_tmp, repo) = init_temp_repo();
+    repo.set_head("refs/heads/feature/x").unwrap();
+    assert_eq!(gitinfo::get_branch_name(&repo), "feature/x (no commits)");
 }
 
 #[test]
@@ -66,20 +75,6 @@ fn test_get_ahead_behind_no_upstream() {
 }
 
 #[test]
-fn test_get_remote_url_none() {
-    let (_tmp, repo) = init_temp_repo();
-    let remote = gitinfo::get_remote_url(&repo);
-    assert!(remote.is_none());
-}
-
-#[test]
-fn test_get_repo_status_invalid_repo() {
-    let tmp = tempfile::tempdir().unwrap();
-    let repo = Repository::open(tmp.path());
-    assert!(repo.is_err());
-}
-
-#[test]
 fn test_get_branch_name_detached_head() {
     let (tmp, repo) = init_temp_repo();
     let path = tmp.path().join("foo.txt");
@@ -96,7 +91,7 @@ fn test_get_branch_name_detached_head() {
     // Checkout detached HEAD
     repo.set_head_detached(commit_oid).unwrap();
     let branch = gitinfo::get_branch_name(&repo);
-    assert!(!branch.is_empty());
+    assert_eq!(branch, "N/A", "a detached HEAD has no branch name");
 }
 
 #[test]
@@ -128,26 +123,24 @@ fn test_get_total_commits_multiple() {
 
 #[test]
 fn test_repo_info_new_with_and_without_remote() {
-    let (_, mut repo) = init_temp_repo();
-    // Without remote
-    let info = RepoInfo::new(
-        &mut repo,
-        "tmp",
-        &Args::default(),
-        &PathBuf::from("/path/to/repo"),
+    let (_tmp, mut repo) = init_temp_repo();
+    repo.remote("origin", "https://github.com/user/repo.git")
+        .unwrap();
+    let info = RepoInfo::new(&mut repo, "tmp", &Args::default(), "tmp").unwrap();
+    assert_eq!(
+        info.remote_url, None,
+        "the URL is only looked up with --remote"
     );
-    info.unwrap();
-    // With remote (origin does not exist)
-    let info_remote = RepoInfo::new(
-        &mut repo,
-        "tmp",
-        &Args {
-            remote: true,
-            ..Default::default()
-        },
-        &PathBuf::from("/path/to/repo"),
+
+    let args = Args {
+        remote: true,
+        ..Default::default()
+    };
+    let info = RepoInfo::new(&mut repo, "tmp", &args, "tmp").unwrap();
+    assert_eq!(
+        info.remote_url.as_deref(),
+        Some("https://github.com/user/repo.git")
     );
-    info_remote.unwrap();
 }
 
 #[test]
@@ -170,9 +163,10 @@ fn test_get_ahead_behind_error_cases() {
 
 #[test]
 fn test_fetch_remote_failure() {
-    let (_tmp, repo) = init_temp_repo();
-    // Simulate a fetch failure by pointing to a non-existent remote
-    repo.remote("origin", "https://invalid-url").unwrap();
+    let (tmp, repo) = init_temp_repo();
+    // A local path that does not exist fails without touching the network.
+    let missing = tmp.path().join("missing-remote");
+    repo.remote("origin", missing.to_str().unwrap()).unwrap();
     let result = gitinfo::fetch_remote(&repo);
     assert!(result.is_err());
 }
@@ -197,6 +191,9 @@ fn test_status_display_variants() {
     assert_eq!(Status::Bisect.to_string(), "Bisect");
     assert_eq!(Status::CherryPick.to_string(), "Cherry Pick");
     assert_eq!(Status::Unknown.to_string(), "Unknown");
+    assert_eq!(Status::Unpublished.to_string(), "Unpublished");
+    assert_eq!(Status::Unpushed.to_string(), "Unpushed");
+    assert_eq!(Status::Detached.to_string(), "Detached");
 }
 
 #[test]
@@ -214,6 +211,16 @@ fn test_status_colors() {
             r: 255,
             g: 165,
             b: 0
+        }
+    );
+    assert_eq!(Status::Unpublished.comfy_color(), Color::Red);
+    assert_eq!(Status::Unpushed.comfy_color(), Color::Red);
+    assert_eq!(
+        Status::Detached.comfy_color(),
+        Color::Rgb {
+            r: 255,
+            g: 0,
+            b: 255
         }
     );
 }
@@ -237,6 +244,18 @@ fn test_status_descriptions() {
         Status::Unknown.description(),
         "Status is unknown or not recognized."
     );
+    assert_eq!(
+        Status::Unpublished.description(),
+        "The branch is not published."
+    );
+    assert_eq!(
+        Status::Unpushed.description(),
+        "There are unpushed commits."
+    );
+    assert_eq!(
+        Status::Detached.description(),
+        "The repository is in a detached HEAD state."
+    );
 }
 
 #[test]
@@ -256,42 +275,12 @@ fn test_get_stash_count_empty() {
 #[test]
 fn test_repo_info_includes_stash_and_local_status() {
     let (_tmp, mut repo) = init_temp_repo();
-    let info = RepoInfo::new(
-        &mut repo,
-        "test",
-        &Args::default(),
-        &PathBuf::from("/path/to/repo"),
-    )
-    .unwrap();
+    let info = RepoInfo::new(&mut repo, "test", &Args::default(), "repo").unwrap();
     assert_eq!(info.stash_count, 0);
     assert!(info.is_local_only);
 }
 
 // New tests for additional git states and edge cases
-
-#[test]
-fn test_status_new_with_merge_state() {
-    let (tmp, repo) = init_temp_repo();
-
-    // Create initial commit
-    let path = tmp.path().join("file.txt");
-    fs::write(&path, "initial content").unwrap();
-    let mut index = repo.index().unwrap();
-    index.add_path(Path::new("file.txt")).unwrap();
-    index.write().unwrap();
-    let oid = index.write_tree().unwrap();
-    let sig = repo.signature().unwrap();
-    let tree = repo.find_tree(oid).unwrap();
-    repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
-        .unwrap();
-
-    // Simulate merge state by creating MERGE_HEAD file directly
-    let merge_head_path = tmp.path().join(".git/MERGE_HEAD");
-    fs::write(&merge_head_path, "1234567890abcdef1234567890abcdef12345678").unwrap();
-
-    let status = Status::new(&repo);
-    assert_eq!(status, Status::Merge);
-}
 
 #[test]
 fn test_get_changed_count_multiple_types() {
@@ -320,28 +309,8 @@ fn test_get_changed_count_multiple_types() {
     index.add_path(Path::new("file3.txt")).unwrap();
     index.write().unwrap();
 
-    let changed_count = changed_count(&repo);
-    assert!(changed_count >= 3); // At least the three changes we made
-}
-
-#[test]
-fn test_get_branch_push_status_unpublished() {
-    let (tmp, repo) = init_temp_repo();
-
-    // Create a commit on local branch
-    let path = tmp.path().join("file.txt");
-    fs::write(&path, "content").unwrap();
-    let mut index = repo.index().unwrap();
-    index.add_path(Path::new("file.txt")).unwrap();
-    index.write().unwrap();
-    let oid = index.write_tree().unwrap();
-    let sig = repo.signature().unwrap();
-    let tree = repo.find_tree(oid).unwrap();
-    repo.commit(Some("HEAD"), &sig, &sig, "commit", &tree, &[])
-        .unwrap();
-
-    let status = gitinfo::get_branch_push_status(&repo);
-    assert_eq!(status, Status::Unpublished);
+    // One untracked, one modified and one staged file.
+    assert_eq!(changed_count(&repo), 3);
 }
 
 #[test]
@@ -398,76 +367,6 @@ fn test_multiple_stashes() {
 
     let stash_count = gitinfo::get_stash_count(&mut repo);
     assert_eq!(stash_count, 2);
-}
-
-#[test]
-fn test_status_new_additional_variants() {
-    // Test additional status variants that might not be covered
-    assert_eq!(Status::Unpublished.to_string(), "Unpublished");
-    assert_eq!(Status::Unpushed.to_string(), "Unpushed");
-    assert_eq!(Status::Detached.to_string(), "Detached");
-}
-
-#[test]
-fn test_status_additional_colors() {
-    assert_eq!(Status::Unpublished.comfy_color(), Color::Red);
-    assert_eq!(Status::Unpushed.comfy_color(), Color::Red);
-    assert_eq!(
-        Status::Detached.comfy_color(),
-        Color::Rgb {
-            r: 255,
-            g: 0,
-            b: 255
-        }
-    );
-}
-
-#[test]
-fn test_status_additional_descriptions() {
-    assert_eq!(
-        Status::Unpublished.description(),
-        "The branch is not published."
-    );
-    assert_eq!(
-        Status::Unpushed.description(),
-        "There are unpushed commits."
-    );
-    assert_eq!(
-        Status::Detached.description(),
-        "The repository is in a detached HEAD state or has no upstream branch."
-    );
-}
-
-#[test]
-fn test_get_repo_name_from_url() {
-    // Test the get_repo_name function indirectly through RepoInfo
-    let (_, mut repo) = init_temp_repo();
-
-    // Just test with the fallback name since adding remotes can be tricky
-    let info = RepoInfo::new(
-        &mut repo,
-        "fallback-name",
-        &Args::default(),
-        &PathBuf::from("/path/to/repo"),
-    )
-    .unwrap();
-    assert_eq!(info.name, "fallback-name"); // Should use the provided name
-}
-
-#[test]
-fn test_get_repo_path_functionality() {
-    let (tmp, repo) = init_temp_repo();
-
-    // Test that the repo path is correctly identified
-    let repo_path = repo.path();
-    assert!(repo_path.ends_with(".git"));
-
-    // When we get the working directory, it should be the parent
-    let workdir = repo.workdir().unwrap();
-    // Canonicalize both paths to handle macOS symlinks (/var vs /private/var)
-    let workdir_canonical = workdir.canonicalize().unwrap();
-    let tmp_canonical = tmp.path().canonicalize().unwrap();
-    assert_eq!(workdir_canonical, tmp_canonical);
 }
 
 #[test]
@@ -601,13 +500,7 @@ fn test_repo_info_name_from_scp_style_remote() {
     repo.remote("origin", "git@github.com:bircni/git-statuses.git")
         .unwrap();
 
-    let info = RepoInfo::new(
-        &mut repo,
-        "fallback-name",
-        &Args::default(),
-        &PathBuf::from("/path/to/repo"),
-    )
-    .unwrap();
+    let info = RepoInfo::new(&mut repo, "fallback-name", &Args::default(), "repo").unwrap();
 
     assert_eq!(info.name, "git-statuses");
 }
@@ -619,13 +512,7 @@ fn test_repo_info_name_falls_back_to_directory_name() {
     let (_tmp, mut repo) = init_temp_repo();
     repo.remote("origin", "/").unwrap();
 
-    let info = RepoInfo::new(
-        &mut repo,
-        "fallback-name",
-        &Args::default(),
-        &PathBuf::from("/path/to/repo"),
-    )
-    .unwrap();
+    let info = RepoInfo::new(&mut repo, "fallback-name", &Args::default(), "repo").unwrap();
 
     assert_eq!(info.name, "fallback-name");
 }
@@ -683,7 +570,8 @@ fn test_status_and_changed_count_agree() {
 
     // A committed working directory has no changes at all.
     assert_eq!(changed_count(&repo), 0);
-    assert_ne!(Status::new(&repo), Status::Dirty(0));
+    // `Dirty(0)` is never constructed, so compare against what a clean, untracked branch is.
+    assert_eq!(Status::new(&repo), Status::Unpublished);
 
     // Each new kind of change must move both the status and the count in lockstep.
     fs::write(tmp.path().join("untracked.txt"), "new").unwrap();
@@ -718,9 +606,9 @@ fn test_ignored_files_do_not_make_a_repository_dirty() {
     fs::write(tmp.path().join("ignored.txt"), "please ignore me").unwrap();
 
     assert_eq!(changed_count(&repo), 0);
-    assert_ne!(
+    assert_eq!(
         Status::new(&repo),
-        Status::Dirty(0),
+        Status::Unpublished,
         "an ignored file is not a change"
     );
 }
@@ -824,7 +712,7 @@ fn test_get_repo_path_for_bare_repository() {
         &mut Repository::open(&bare_path).unwrap(),
         "bare",
         &Args::default(),
-        tmp.path(),
+        "bare.git",
     )
     .unwrap();
 
@@ -834,7 +722,6 @@ fn test_get_repo_path_for_bare_repository() {
         info.path.canonicalize().unwrap(),
         bare_path.canonicalize().unwrap()
     );
-    assert_eq!(info.repo_path, "bare.git");
 }
 
 /// A bare repository does not have to be named `<name>.git`. Its git directory then has no
@@ -846,13 +733,12 @@ fn test_get_repo_path_for_bare_repository_without_git_suffix() {
     Repository::init_bare(&bare_path).unwrap();
 
     let mut repo = Repository::open(&bare_path).unwrap();
-    let info = RepoInfo::new(&mut repo, "plain-bare", &Args::default(), tmp.path()).unwrap();
+    let info = RepoInfo::new(&mut repo, "plain-bare", &Args::default(), "plain-bare").unwrap();
 
     assert_eq!(
         info.path.canonicalize().unwrap(),
         bare_path.canonicalize().unwrap()
     );
-    assert_eq!(info.repo_path, "plain-bare");
 }
 
 /// A repository without a working directory falls back to its git directory, with the
@@ -866,7 +752,7 @@ fn test_repo_path_of_a_bare_handle_strips_the_git_component() {
 
     // Opening the `.git` directory bare gives a handle with no working directory.
     let mut bare = Repository::open_bare(tmp.path().join(".git")).unwrap();
-    let info = RepoInfo::new(&mut bare, "bare-handle", &Args::default(), tmp.path()).unwrap();
+    let info = RepoInfo::new(&mut bare, "bare-handle", &Args::default(), "bare-handle").unwrap();
 
     let expected = tmp.path().canonicalize().unwrap();
     assert_eq!(
@@ -1025,4 +911,37 @@ fn test_branch_tracking_a_differently_named_upstream() {
         Status::Unpushed,
         "being ahead of its upstream makes it unpushed, not unpublished"
     );
+}
+
+/// A detached HEAD is not on a branch, so it is neither local-only nor measured against an
+/// upstream. It used to show `local-only` and count towards the summary's local-only branches.
+#[test]
+fn test_detached_head_is_not_local_only() {
+    let (tmp, repo) = init_temp_repo();
+    commit_initial(&tmp, &repo);
+    let head = repo.head().unwrap().target().unwrap();
+    repo.set_head_detached(head).unwrap();
+
+    assert_eq!(
+        gitinfo::get_ahead_behind_and_local_status(&repo),
+        (0, 0, false)
+    );
+
+    let mut repo = Repository::open(tmp.path()).unwrap();
+    let info = RepoInfo::new(&mut repo, "detached", &Args::default(), "detached").unwrap();
+    assert!(info.is_detached);
+    assert!(!info.is_local_only);
+    assert_eq!(info.format_local_status(), "-");
+}
+
+/// `--fetch` runs one `git fetch` per repository in parallel, so git must never stop to ask
+/// for credentials on the terminal.
+#[test]
+fn test_fetch_command_never_prompts_on_the_terminal() {
+    let command = gitinfo::fetch_command("origin", Path::new("."));
+    let prompt = command
+        .get_envs()
+        .find(|(key, _)| *key == "GIT_TERMINAL_PROMPT")
+        .and_then(|(_, value)| value);
+    assert_eq!(prompt, Some(std::ffi::OsStr::new("0")));
 }

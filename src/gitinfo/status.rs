@@ -27,7 +27,7 @@ pub enum Status {
     Unpushed,
     /// The branch is not published.
     Unpublished,
-    /// The repository is in a detached HEAD state or has no upstream branch.
+    /// The repository is in a detached HEAD state.
     Detached,
     /// The status of the repository is unknown or not recognized.
     #[default]
@@ -124,9 +124,7 @@ impl Status {
     pub const fn description(&self) -> &str {
         match self {
             Self::Clean => "No changes, no unpushed commits.",
-            Self::Detached => {
-                "The repository is in a detached HEAD state or has no upstream branch."
-            }
+            Self::Detached => "The repository is in a detached HEAD state.",
             Self::Dirty(_) => "Working directory has changes.",
             Self::Merge => "Merge in progress.",
             Self::Revert => "Revert in progress.",
