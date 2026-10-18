@@ -57,6 +57,50 @@ fn create_dirty_repo(path: &Path, repo_name: &str) -> Repository {
     repo
 }
 
+/// Commits `content` as `file` on top of the repository's current HEAD.
+fn commit_file(repo: &Repository, file: &str, content: &str) -> git2::Oid {
+    fs::write(repo.workdir().unwrap().join(file), content).unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new(file)).unwrap();
+    index.write().unwrap();
+    let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = repo.signature().unwrap();
+    let parent = repo.head().unwrap().peel_to_commit().unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "change", &tree, &[&parent])
+        .unwrap()
+}
+
+/// Creates a repository standing in for a remote, and a clone of it at `<temp>/scan/clone`
+/// whose branch tracks the remote's. Scanning `<temp>/scan` finds only the clone.
+fn remote_and_clone(temp: &Path) -> (Repository, Repository) {
+    let remote = create_git_repo_with_commit(temp, "remote");
+    let clone = Repository::clone(
+        remote.workdir().unwrap().to_str().unwrap(),
+        temp.join("scan").join("clone"),
+    )
+    .unwrap();
+    let mut config = clone.config().unwrap();
+    config.set_str("user.name", "Test User").unwrap();
+    config.set_str("user.email", "test@example.com").unwrap();
+    drop(config);
+    (remote, clone)
+}
+
+/// Scans `<temp>/scan` the way `remote_and_clone` laid it out.
+fn scan_clone(temp: &Path, fetch: bool, fast_forward: bool) -> crate::gitinfo::repoinfo::RepoInfo {
+    let args = Args {
+        dir: temp.join("scan"),
+        depth: 1,
+        fetch,
+        fast_forward,
+        ..Default::default()
+    };
+    let (mut repos, failed) = scan::find_repositories(&args);
+    assert_eq!(failed, Vec::<String>::new());
+    assert_eq!(repos.len(), 1);
+    repos.remove(0)
+}
+
 #[test]
 fn test_integration_single_clean_repository() {
     let temp_dir = TempDir::new().unwrap();
@@ -74,7 +118,7 @@ fn test_integration_single_clean_repository() {
     assert_eq!(failed.len(), 0);
     assert_eq!(repos[0].name, "test-repo");
     assert!(repos[0].commits > 0);
-    assert!(!repos[0].branch.is_empty());
+    assert_ne!(repos[0].branch, "");
 }
 
 #[test]
@@ -106,70 +150,6 @@ fn test_integration_multiple_repositories() {
         dirty_repo.status,
         crate::gitinfo::status::Status::Dirty(_)
     ));
-}
-
-#[test]
-fn test_integration_nested_repositories_with_depth() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create nested structure: root/level1/level2/repo
-    let level1_dir = temp_dir.path().join("level1");
-    let level2_dir = level1_dir.join("level2");
-    fs::create_dir_all(&level2_dir).unwrap();
-
-    let _repo_root = create_git_repo_with_commit(temp_dir.path(), "root-repo");
-    let _repo_level1 = create_git_repo_with_commit(&level1_dir, "level1-repo");
-    let _repo_level2 = create_git_repo_with_commit(&level2_dir, "level2-repo");
-
-    // Test depth 1 - should only find root repo
-    let args_depth1 = Args {
-        dir: temp_dir.path().to_path_buf(),
-        depth: 1,
-        ..Default::default()
-    };
-    let (repos_depth1, _) = scan::find_repositories(&args_depth1);
-    assert_eq!(repos_depth1.len(), 1);
-    assert_eq!(repos_depth1[0].name, "root-repo");
-
-    // Test depth 3 - should find all repos
-    let args_depth3 = Args {
-        dir: temp_dir.path().to_path_buf(),
-        depth: 3,
-        ..Default::default()
-    };
-    let (repos_depth3, _) = scan::find_repositories(&args_depth3);
-    assert_eq!(repos_depth3.len(), 3);
-
-    let repo_names: Vec<&str> = repos_depth3.iter().map(|r| r.name.as_str()).collect();
-    assert!(repo_names.contains(&"root-repo"));
-    assert!(repo_names.contains(&"level1-repo"));
-    assert!(repo_names.contains(&"level2-repo"));
-}
-
-#[test]
-fn test_integration_subdir_functionality() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create structure: project/checkout/.git
-    let project_dir = temp_dir.path().join("project");
-    let checkout_dir = project_dir.join("checkout");
-    fs::create_dir_all(&checkout_dir).unwrap();
-
-    let _repo = create_git_repo_with_commit(&checkout_dir, "test-repo");
-
-    // Test with subdir option
-    let args = Args {
-        dir: temp_dir.path().to_path_buf(),
-        depth: 3,
-        subdir: Some("checkout".to_owned()),
-        ..Default::default()
-    };
-
-    let (repos, failed) = scan::find_repositories(&args);
-
-    assert_eq!(repos.len(), 1);
-    assert_eq!(failed.len(), 0);
-    assert_eq!(repos[0].name, "test-repo");
 }
 
 /// Repositories are collected in parallel with rayon, so the raw collection order depends
@@ -378,6 +358,15 @@ fn test_integration_repository_fast_forward() {
     assert_eq!(repos.len(), 1);
     assert_eq!(failed.len(), 0);
     assert!(repos[0].fast_forwarded);
+    assert!(
+        local_temp_dir.path().join("local-repo/dummy.md").exists(),
+        "the fast-forward must check the new commit out, not only move the branch"
+    );
+    assert_ne!(
+        repos[0].status,
+        crate::gitinfo::status::Status::Dirty(1),
+        "the index and working tree must match the new commit"
+    );
     assert_eq!(
         repos[0].commits, 2,
         "commit count must be gathered after the fast-forward"
@@ -485,28 +474,24 @@ fn test_integration_worktree_detection() {
 
     // Create a feature branch
     let head = repo.head().unwrap();
+    // Whatever `init.defaultBranch` the machine running the tests has configured.
+    let default_branch = head.shorthand().unwrap().to_owned();
     let target = head.target().unwrap();
     let commit = repo.find_commit(target).unwrap();
     repo.branch("feature-branch", &commit, false).unwrap();
     drop(commit);
     drop(head);
 
-    // Create a worktree using git command (git2-rs doesn't have worktree creation API)
+    // Check the feature branch out in a worktree. git2 does this itself, so the user's
+    // global git config (hooks and the like) never runs during the test.
     let worktree_path = temp_dir.path().join("feature-worktree");
-    let output = std::process::Command::new("git")
-        .arg("worktree")
-        .arg("add")
-        .arg(&worktree_path)
-        .arg("feature-branch")
-        .current_dir(&main_repo_path)
-        .output()
+    let feature = repo
+        .find_branch("feature-branch", git2::BranchType::Local)
         .unwrap();
-
-    assert!(
-        output.status.success(),
-        "Failed to create worktree: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let mut opts = git2::WorktreeAddOptions::new();
+    opts.reference(Some(feature.get()));
+    repo.worktree("feature-worktree", &worktree_path, Some(&opts))
+        .unwrap();
 
     // Now scan the temp directory for repositories
     let args = Args {
@@ -542,12 +527,7 @@ fn test_integration_worktree_detection() {
         !main_repo.is_worktree,
         "Main repo should not be marked as worktree"
     );
-    // Git might use "main" or "master" depending on configuration
-    assert!(
-        main_repo.branch == "main" || main_repo.branch == "master",
-        "Main repo branch should be 'main' or 'master', got: {}",
-        main_repo.branch
-    );
+    assert_eq!(main_repo.branch, default_branch);
 
     // Verify worktree IS detected as a worktree
     assert!(
@@ -601,18 +581,9 @@ fn test_integration_worktree_with_changes() {
     drop(index);
 
     // Create worktree
+    // Without a reference, git2 checks out a new branch named after the worktree.
     let worktree_path = temp_dir.path().join("worktree");
-    let output = std::process::Command::new("git")
-        .arg("worktree")
-        .arg("add")
-        .arg(&worktree_path)
-        .arg("-b")
-        .arg("new-branch")
-        .current_dir(&main_repo_path)
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
+    repo.worktree("new-branch", &worktree_path, None).unwrap();
 
     // Make changes in the worktree
     let worktree_file = worktree_path.join("new-file.txt");
@@ -731,22 +702,11 @@ fn test_integration_depth_edge_values() {
 fn test_integration_unlimited_depth_ignores_git_internals() {
     let temp_dir = TempDir::new().unwrap();
 
-    let main_repo_path = temp_dir.path().join("main-repo");
-    create_git_repo_with_commit(temp_dir.path(), "main-repo");
+    let repo = create_git_repo_with_commit(temp_dir.path(), "main-repo");
 
-    // `git worktree add` populates .git/worktrees/<name> with a HEAD, commondir, gitdir...
+    // Adding a worktree populates .git/worktrees/<name> with a HEAD, commondir, gitdir...
     let worktree_path = temp_dir.path().join("feature-worktree");
-    let output = std::process::Command::new("git")
-        .args(["worktree", "add", "-b", "feature"])
-        .arg(&worktree_path)
-        .current_dir(&main_repo_path)
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "failed to create worktree: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    repo.worktree("feature", &worktree_path, None).unwrap();
 
     // An unlimited scan walks everything below the root, git directories included.
     let args = Args {
@@ -808,7 +768,10 @@ fn test_integration_subdir_finds_repo_below_the_scanned_level() {
     let (repos, failed) = scan::find_repositories(&with_subdir);
     assert_eq!(failed.len(), 0);
     assert_eq!(repos.len(), 1, "--subdir must find the nested checkout");
-    assert_eq!(repos[0].repo_path, "project/checkout");
+    assert_eq!(
+        repos[0].repo_path,
+        Path::new("project").join("checkout").display().to_string()
+    );
 
     // A subdir that does not exist anywhere must simply yield nothing.
     let missing_subdir = Args {
@@ -906,4 +869,159 @@ fn test_repository_with_unreadable_history_is_reported_as_failed() {
         failed.iter().any(|f| f == "no-objects"),
         "the unreadable repository must be listed as failed, got: {failed:?}"
     );
+}
+
+/// A `--subdir` checkout that cannot be opened is reported under the scanned directory's
+/// name. Reporting the opened path's name listed every broken project as `checkout`.
+#[test]
+fn test_integration_unreadable_subdir_is_named_after_the_project() {
+    let temp_dir = TempDir::new().unwrap();
+    let checkout = temp_dir.path().join("project").join("checkout");
+    fs::create_dir_all(&checkout).unwrap();
+    fs::write(checkout.join(".git"), "gitdir: /nowhere").unwrap();
+
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: 1,
+        subdir: Some("checkout".to_owned()),
+        ..Default::default()
+    };
+    let (repos, failed) = scan::find_repositories(&args);
+
+    assert!(repos.is_empty());
+    assert_eq!(failed, ["project"]);
+}
+
+/// `--fetch` alone updates the remote-tracking branch but not the local one, so the
+/// repository is reported as behind and nothing is fast-forwarded.
+#[test]
+fn test_integration_fetch_reports_commits_behind() {
+    let temp = TempDir::new().unwrap();
+    let (remote, _clone) = remote_and_clone(temp.path());
+    commit_file(&remote, "upstream.txt", "new upstream work");
+
+    let info = scan_clone(temp.path(), true, false);
+
+    assert_eq!((info.ahead, info.behind), (0, 1));
+    assert!(!info.fast_forwarded);
+    assert_eq!(info.status, crate::gitinfo::status::Status::Clean);
+}
+
+/// A branch that diverged from its upstream cannot be fast-forwarded. `--ff` must leave it
+/// where it is and report both sides.
+#[test]
+fn test_integration_fast_forward_leaves_a_diverged_branch_alone() {
+    let temp = TempDir::new().unwrap();
+    let (remote, clone) = remote_and_clone(temp.path());
+    commit_file(&remote, "upstream.txt", "upstream");
+    let local_head = commit_file(&clone, "local.txt", "local");
+
+    let info = scan_clone(temp.path(), false, true);
+
+    assert!(!info.fast_forwarded);
+    assert_eq!((info.ahead, info.behind), (1, 1));
+    let clone = Repository::open(clone.workdir().unwrap()).unwrap();
+    assert_eq!(clone.head().unwrap().target(), Some(local_head));
+}
+
+/// An uncommitted change to a file the upstream changed too would be overwritten by the
+/// fast-forward. The checkout must refuse, keeping both the branch and the change.
+#[test]
+fn test_integration_fast_forward_keeps_conflicting_local_changes() {
+    let temp = TempDir::new().unwrap();
+    let (remote, clone) = remote_and_clone(temp.path());
+    let before = clone.head().unwrap().target();
+    commit_file(&remote, "README.md", "# Changed upstream\n");
+    let readme = clone.workdir().unwrap().join("README.md");
+    fs::write(&readme, "# Changed locally\n").unwrap();
+
+    let info = scan_clone(temp.path(), false, true);
+
+    assert!(!info.fast_forwarded);
+    assert_eq!(info.behind, 1);
+    let clone = Repository::open(clone.workdir().unwrap()).unwrap();
+    assert_eq!(clone.head().unwrap().target(), before, "HEAD must not move");
+    assert_eq!(fs::read_to_string(&readme).unwrap(), "# Changed locally\n");
+}
+
+/// A detached HEAD is not on a branch, so there is nothing to fast-forward.
+#[test]
+fn test_integration_fast_forward_skips_a_detached_head() {
+    let temp = TempDir::new().unwrap();
+    let (remote, clone) = remote_and_clone(temp.path());
+    let before = clone.head().unwrap().target().unwrap();
+    clone.set_head_detached(before).unwrap();
+    commit_file(&remote, "upstream.txt", "upstream");
+
+    let info = scan_clone(temp.path(), false, true);
+
+    assert!(!info.fast_forwarded);
+    assert!(info.is_detached);
+    let clone = Repository::open(clone.workdir().unwrap()).unwrap();
+    assert_eq!(clone.head().unwrap().target(), Some(before));
+}
+
+/// A worktree's git directory lives inside the main repository's, so the fetch has to run
+/// in the worktree's working directory to reach the remote at all.
+#[test]
+fn test_integration_fetch_from_a_worktree() {
+    let temp = TempDir::new().unwrap();
+    let (remote, clone) = remote_and_clone(temp.path());
+    let branch = clone.head().unwrap().shorthand().unwrap().to_owned();
+    let worktree_path = temp.path().join("worktree");
+    clone.worktree("wt", &worktree_path, None).unwrap();
+    let upstream = commit_file(&remote, "upstream.txt", "upstream");
+
+    let worktree = Repository::open(&worktree_path).unwrap();
+    crate::gitinfo::fetch_remote(&worktree).unwrap();
+
+    let tracking = worktree
+        .find_reference(&format!("refs/remotes/origin/{branch}"))
+        .unwrap();
+    assert_eq!(tracking.target(), Some(upstream));
+}
+
+/// An unlimited scan keeps descending into a repository's working directory, so a
+/// repository nested inside another one is reported as well.
+#[test]
+fn test_integration_unlimited_depth_finds_nested_repositories() {
+    let temp_dir = TempDir::new().unwrap();
+    let outer = create_git_repo_with_commit(temp_dir.path(), "outer");
+    create_git_repo_with_commit(outer.workdir().unwrap(), "inner");
+
+    let args = Args {
+        dir: temp_dir.path().to_path_buf(),
+        depth: -1,
+        ..Default::default()
+    };
+    let (repos, failed) = scan::find_repositories(&args);
+
+    assert_eq!(failed, Vec::<String>::new());
+    let paths: Vec<&str> = repos.iter().map(|r| r.repo_path.as_str()).collect();
+    let inner = Path::new("outer").join("inner").display().to_string();
+    assert_eq!(paths, ["outer", inner.as_str()]);
+}
+
+/// The walk does not follow symlinks, but a link to a repository is still a directory
+/// with a `.git` in it. It is shown under the link's name: git resolves the link when it
+/// opens the repository, which used to put the absolute target path in the table.
+#[cfg(unix)]
+#[test]
+fn test_integration_symlinked_repository_is_shown_under_the_link_name() {
+    let target_dir = TempDir::new().unwrap();
+    create_git_repo_with_commit(target_dir.path(), "real");
+    let scan_dir = TempDir::new().unwrap();
+    std::os::unix::fs::symlink(target_dir.path().join("real"), scan_dir.path().join("link"))
+        .unwrap();
+
+    let args = Args {
+        dir: scan_dir.path().to_path_buf(),
+        depth: 1,
+        ..Default::default()
+    };
+    let (repos, failed) = scan::find_repositories(&args);
+
+    assert_eq!(failed, Vec::<String>::new());
+    assert_eq!(repos.len(), 1);
+    assert_eq!(repos[0].repo_path, "link");
 }

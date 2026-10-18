@@ -60,13 +60,16 @@ fn json_output_is_the_only_thing_on_stdout() {
         .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    serde_json::from_str::<serde_json::Value>(&stdout)
+    let json = serde_json::from_str::<serde_json::Value>(&stdout)
         .unwrap_or_else(|e| panic!("`--json` stdout must parse as JSON ({e}), got:\n{stdout}"));
+    assert_eq!(json["failed"], serde_json::json!(["broken"]));
 
-    // The diagnostic about the unreadable repository still has to be reported somewhere.
+    // The unreadable repository is reported on stderr as well, as it is for the table. Only
+    // a debug-level line used to mention it, which a release build does not print.
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("broken"),
+        stderr.contains("Failed to process the following repositories")
+            && stderr.contains("broken"),
         "the unreadable repository must be reported on stderr, got:\n{stderr}"
     );
 }
@@ -85,6 +88,14 @@ fn table_output_is_the_only_thing_on_stdout() {
     assert!(
         !stdout.contains("DEBUG") && !stdout.contains("WARN"),
         "log records must not appear on stdout, got:\n{stdout}"
+    );
+
+    // `failed_summary` logs, so this is where its output can be observed.
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("Failed to process the following repositories")
+            && stderr.contains(" - broken"),
+        "the unreadable repository must be listed on stderr, got:\n{stderr}"
     );
 }
 

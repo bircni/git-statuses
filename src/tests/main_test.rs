@@ -1,4 +1,4 @@
-use std::{fs, io, path::Path, path::PathBuf};
+use std::{fs, path::Path, path::PathBuf};
 
 use clap::Parser;
 use clap_complete::Shell;
@@ -28,6 +28,7 @@ fn repo_info_with_status(status: Status, stash_count: usize, fast_forwarded: boo
         fast_forwarded,
         repo_path: "repo".to_owned(),
         is_worktree: false,
+        is_detached: false,
     }
 }
 
@@ -80,6 +81,9 @@ fn test_args_parse_json_fast_forward_and_subdir() {
 }
 
 /// Creates a repository with one commit, and optionally an uncommitted file.
+///
+/// The commit is also on a remote-tracking branch, so a repository without the
+/// uncommitted file is `Clean` rather than `Unpublished`.
 fn create_repo(parent: &Path, name: &str, dirty: bool) {
     let repo_path = parent.join(name);
     fs::create_dir_all(&repo_path).unwrap();
@@ -100,6 +104,13 @@ fn create_repo(parent: &Path, name: &str, dirty: bool) {
     repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
         .unwrap();
 
+    let head = repo.head().unwrap();
+    let tracking = format!("refs/remotes/origin/{}", head.shorthand().unwrap());
+    repo.remote("origin", &format!("https://example.com/{name}.git"))
+        .unwrap();
+    repo.reference(&tracking, head.target().unwrap(), true, "test")
+        .unwrap();
+
     if dirty {
         fs::write(repo_path.join("uncommitted.txt"), "work in progress").unwrap();
     }
@@ -113,21 +124,42 @@ fn scan_dir() -> TempDir {
     temp
 }
 
+/// Runs the tool and returns the report it wrote.
+fn run_to_string(args: &Args) -> String {
+    let mut out = Vec::new();
+    run(args, &mut out);
+    String::from_utf8(out).unwrap()
+}
+
 #[test]
 fn test_run_prints_table() {
     let temp = scan_dir();
-    let args = Args {
+    let out = run_to_string(&Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
         ..Default::default()
-    };
-    run(&args, &mut io::sink());
+    });
+
+    for expected in [
+        "Directory",
+        "Branch",
+        "Commits",
+        "clean-repo",
+        "dirty-repo",
+        "Dirty (1)",
+    ] {
+        assert!(out.contains(expected), "missing {expected:?} in:\n{out}");
+    }
+    assert!(
+        !out.contains("Remote") && !out.contains("Summary:"),
+        "optional columns and the summary are off by default, got:\n{out}"
+    );
 }
 
 #[test]
 fn test_run_with_all_display_options() {
     let temp = scan_dir();
-    let args = Args {
+    let out = run_to_string(&Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
         remote: true,
@@ -135,45 +167,73 @@ fn test_run_with_all_display_options() {
         condensed: true,
         summary: true,
         ..Default::default()
-    };
-    run(&args, &mut io::sink());
+    });
+
+    for expected in [
+        "Remote",
+        "Path",
+        "Summary:",
+        "Total repositories:   2",
+        "Clean:                1",
+        "With changes:         1",
+    ] {
+        assert!(out.contains(expected), "missing {expected:?} in:\n{out}");
+    }
 }
 
 #[test]
 fn test_run_with_non_clean_filter() {
     let temp = scan_dir();
-    let args = Args {
+    let out = run_to_string(&Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
         non_clean: true,
         summary: true,
         ..Default::default()
-    };
-    run(&args, &mut io::sink());
+    });
+
+    assert!(out.contains("dirty-repo"), "got:\n{out}");
+    assert!(
+        !out.contains("clean-repo"),
+        "--non-clean must hide the clean repository, got:\n{out}"
+    );
+    // The summary describes the whole scan, not only what the filter let through.
+    assert!(out.contains("Total repositories:   2"), "got:\n{out}");
 }
 
 #[test]
 fn test_run_json() {
     let temp = scan_dir();
-    let args = Args {
+    let out = run_to_string(&Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
         json: true,
         ..Default::default()
-    };
-    run(&args, &mut io::sink());
+    });
+
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let names: Vec<&str> = json["repositories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["repo_path"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["clean-repo", "dirty-repo"]);
+    assert_eq!(json["failed"], serde_json::json!([]));
 }
 
 #[test]
 fn test_run_on_directory_without_repositories() {
     let temp = TempDir::new().unwrap();
-    let args = Args {
+    let out = run_to_string(&Args {
         dir: temp.path().to_path_buf(),
         depth: 1,
         summary: true,
         ..Default::default()
-    };
-    run(&args, &mut io::sink());
+    });
+
+    assert!(!out.contains("Directory"), "no table without repositories");
+    assert!(out.contains("Total repositories:   0"), "got:\n{out}");
 }
 
 /// A directory whose `.git` git cannot open is reported as failed, not as a hard error.
@@ -190,18 +250,24 @@ fn test_run_reports_failed_repositories() {
         summary: true,
         ..Default::default()
     };
-    run(&args, &mut io::sink());
+    let mut out = Vec::new();
+    let outcome = run(&args, &mut out);
+
+    assert_eq!(outcome.failed, 1);
+    let out = String::from_utf8(out).unwrap();
+    assert!(out.contains("Failed to process:    1"), "got:\n{out}");
 }
 
 #[test]
 fn test_run_legend() {
     for condensed in [false, true] {
-        let args = Args {
+        let out = run_to_string(&Args {
             legend: true,
             condensed,
             ..Default::default()
-        };
-        run(&args, &mut io::sink());
+        });
+        assert!(out.contains("Description"), "got:\n{out}");
+        assert!(out.contains("⎇ indicates a Git worktree"), "got:\n{out}");
     }
 }
 
