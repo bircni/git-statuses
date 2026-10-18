@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [1.0.0](https://github.com/bircni/git-statuses/compare/0.8.2..1.0.0) - 2026-10-18
+
+### Bug Fixes
+
+- **(gitinfo)** [**breaking**] resolve the upstream the same way for both columns ([#57](https://github.com/bircni/git-statuses/issues/57)) - ([f1b8e08](https://github.com/bircni/git-statuses/commit/f1b8e08a7e247af55a5d0f3dbcbe2ae4f302d6fd)) - bircni
+- **(util)** [**breaking**] send diagnostics to stderr so stdout carries only the report - ([0550bc1](https://github.com/bircni/git-statuses/commit/0550bc14e19fb5d8ee5b4ff29b69e138d9156976)) - bircni
+-  [**breaking**]correct several reported values and make the test suite hermetic - ([298f0a7](https://github.com/bircni/git-statuses/commit/298f0a7fedabd813fbcdd5b1f20741ed2809e836)) - bircni
+
+### Continuous Integration
+
+- Potential fix for code scanning alert no. 11: Workflow does not contain permissions ([#59](https://github.com/bircni/git-statuses/issues/59)) - ([7a01fd8](https://github.com/bircni/git-statuses/commit/7a01fd82def69c7af289459cbc96d66fb62e2ab2)) - bircni
+- lower the coverage gate to 90% - ([e328e03](https://github.com/bircni/git-statuses/commit/e328e03b3e91915b9519804150c2edbc7b7e8614)) - bircni
+- pin third-party actions and restrict workflow permissions - ([2b4f289](https://github.com/bircni/git-statuses/commit/2b4f2894906b361b172e271f2b241dc933d96828)) - bircni
+
+### Documentation
+
+- **(readme)** document Homebrew and refresh the usage and output sections - ([c5a1a06](https://github.com/bircni/git-statuses/commit/c5a1a067352ac7ead13117076a6208216a89ffdd)) - bircni
+
+### Features
+
+- **(cli)** [**breaking**] exit non-zero when repositories could not be processed - ([76d4288](https://github.com/bircni/git-statuses/commit/76d4288dbaee1ff05ec3b6560929b64cb145c9e6)) - bircni
+- **(release)** publish a Homebrew formula to bircni/homebrew-tap - ([77a647c](https://github.com/bircni/git-statuses/commit/77a647cc216e279a1a089eb13aa89a8e216e7eb1)) - bircni
+
+### Miscellaneous Chores
+
+- **(deps)** update dependencies to latest ([#55](https://github.com/bircni/git-statuses/issues/55)) - ([9a32d4e](https://github.com/bircni/git-statuses/commit/9a32d4e486bd0f9ad781b19631862debeb16a520)) - bircni
+- **(deps)** [**breaking**] update dependencies and require the latest stable Rust - ([41e9a7d](https://github.com/bircni/git-statuses/commit/41e9a7db5eb9d1c3724f2aeb96c1e39eb29653a5)) - bircni
+
+### Refactoring
+
+- **(gitinfo)** rename fetch_origin and drop unused Deserialize derives - ([f7d8b47](https://github.com/bircni/git-statuses/commit/f7d8b47364a1b26a0cbf6190178848e92aa8e466)) - bircni
+- **(scan)** move repository discovery out of the cli module ([#58](https://github.com/bircni/git-statuses/issues/58)) - ([7cd5af3](https://github.com/bircni/git-statuses/commit/7cd5af3791096e9f71770508fbdd335c7cd51fc8)) - bircni
+- remove redundant per-repository work and make output testable ([#56](https://github.com/bircni/git-statuses/issues/56)) - ([a4052bb](https://github.com/bircni/git-statuses/commit/a4052bb1a0c5af96028581de47cecf8501a3b251)) - bircni
+
 ## [0.8.2](https://github.com/bircni/git-statuses/compare/0.8.1..0.8.2) - 2026-07-14
 
 ### Bug Fixes
