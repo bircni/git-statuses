@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use comfy_table::Cell;
 use git2::{Repository, RepositoryState};
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 use crate::gitinfo;
 
